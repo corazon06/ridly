@@ -1,0 +1,203 @@
+"use client";
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { ArrowLeft, MapPin, MessageCircle, MoreHorizontal, ShieldCheck, UserPlus, X } from "lucide-react";
+import { Avatar, AvatarStack } from "@/components/ui/Avatar";
+import { Card } from "@/components/ui/Card";
+import { Tag } from "@/components/ui/Tag";
+import { Button } from "@/components/ui/Button";
+import {
+  useActions,
+  useConnectionsLists,
+  useMe,
+  useUser,
+} from "@/lib/data/api";
+import {
+  MOTO_TYPE_LABEL,
+  NIVEAU_LABEL,
+  SORTIE_LABEL,
+} from "@/lib/types";
+import { ageFromBirthdate } from "@/lib/utils";
+
+export default function RiderDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const me = useMe();
+  const rider = useUser(id);
+  const { reseau, envoyees } = useConnectionsLists();
+  const { startDmWith } = useActions();
+
+  if (!rider) return <main className="p-6">Profil introuvable.</main>;
+
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const isFriend = reseau.some((r) => r.id === rider.id);
+  const isPending = envoyees.some((c) => c.receveur_id === rider.id);
+  const age = ageFromBirthdate(rider.date_naissance);
+
+  function requestContact() {
+    // Route to the dedicated description screen (Batch 3 SCREEN 1 sister)
+    if (!rider) return;
+    router.push(`/explorer/${rider.id}/request`);
+  }
+
+  function dm() {
+    if (!rider) return;
+    const cid = startDmWith(rider.id);
+    router.push(`/messages/${cid}`);
+  }
+
+  return (
+    <main className="min-h-[100dvh] pb-32">
+      <div className="px-6 pt-4 safe-top flex items-center justify-between">
+        <button
+          onClick={() => router.back()}
+          className="h-10 w-10 rounded-full bg-bg-secondary flex items-center justify-center"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <button className="h-10 w-10 rounded-full bg-bg-secondary flex items-center justify-center">
+          <MoreHorizontal size={20} />
+        </button>
+      </div>
+
+      {/* Photo lightbox */}
+      {photoOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={() => setPhotoOpen(false)}
+          style={{ backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", backgroundColor: "rgba(0,0,0,0.1)" }}
+        >
+          <button
+            className="absolute top-5 right-5 h-9 w-9 rounded-full bg-white/20 flex items-center justify-center text-white"
+            onClick={() => setPhotoOpen(false)}
+          >
+            <X size={18} />
+          </button>
+          {rider.photo_url ? (
+            <img
+              src={rider.photo_url}
+              alt={rider.prenom}
+              className="w-72 h-72 rounded-2xl object-cover shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <div
+              className="w-72 h-72 rounded-2xl bg-bg-secondary flex items-center justify-center text-[80px] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {rider.prenom[0]}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="px-6 mt-4">
+        <button onClick={() => setPhotoOpen(true)} className="rounded-full active:opacity-80 transition-opacity">
+          <Avatar src={rider.photo_url} name={rider.prenom} size="xl" online={rider.is_online} />
+        </button>
+        <h1 className="text-h1 mt-3">
+          {rider.prenom}, {age}
+        </h1>
+        <p className="text-body text-ink-muted flex items-center gap-1 mt-1">
+          <MapPin size={14} /> {rider.ville}, Auvergne-Rhône-Alpes
+        </p>
+        <div className="flex flex-wrap gap-2 mt-3">
+          {rider.permis_verifie ? (
+            <Tag tone="success">
+              <ShieldCheck size={12} /> Permis vérifié
+            </Tag>
+          ) : null}
+          {rider.is_online ? <Tag tone="trust">● En ligne</Tag> : null}
+        </div>
+
+        <Card className="mt-3 p-4 grid grid-cols-3 divide-x divide-line">
+          <Stat value={rider.rides_organises} label="organisés" />
+          <Stat value={rider.rides_rejoints} label="rejoints" />
+          <Stat value={`${rider.km_parcourus} km`} label="parcourus" />
+        </Card>
+
+        <h2 className="text-label mt-6 mb-2">Sa moto</h2>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-bg-secondary flex items-center justify-center">
+            <span className="text-h2">🏍</span>
+          </div>
+          <div className="flex-1">
+            <div className="text-label">
+              {rider.moto_marque} {rider.moto_modele ?? MOTO_TYPE_LABEL[rider.moto_type]}
+            </div>
+            <div className="text-caption text-ink-muted">
+              {MOTO_TYPE_LABEL[rider.moto_type]}
+              {rider.moto_cylindree ? ` · ${rider.moto_cylindree} cm³` : ""}
+              {rider.moto_annee ? ` · ${rider.moto_annee}` : ""}
+            </div>
+          </div>
+          <Tag tone="accent">{NIVEAU_LABEL[rider.niveau]}</Tag>
+        </Card>
+
+        <h2 className="text-label mt-6 mb-2">Types de sorties préférées</h2>
+        <div className="flex flex-wrap gap-2">
+          {rider.types_sorties.map((s) => (
+            <Tag key={s} tone="neutral">{SORTIE_LABEL[s]}</Tag>
+          ))}
+        </div>
+
+        {rider.description ? (
+          <>
+            <h2 className="text-label mt-6 mb-2">À propos</h2>
+            <p className="text-body text-ink leading-relaxed">{rider.description}</p>
+          </>
+        ) : null}
+
+        {reseau.length > 0 && me ? (
+          <Card className="mt-6 p-4">
+            <p className="text-eyebrow text-ink-muted uppercase mb-2">amis Ridly en commun</p>
+            <div className="flex items-center gap-3">
+              <AvatarStack
+                users={reseau.slice(0, 3).map((r) => ({ name: r.prenom, src: r.photo_url }))}
+              />
+              <p className="text-caption text-ink-muted">
+                {reseau.slice(0, 3).map((r) => r.prenom).join(", ")} ont déjà
+                roulé ensemble
+              </p>
+            </div>
+          </Card>
+        ) : null}
+      </div>
+
+      <div
+        className="fixed bottom-0 left-0 right-0 mx-auto px-[22px] pb-24 pt-3 sticky-bottom-fade"
+        style={{ maxWidth: 440 }}
+      >
+        <div className="flex gap-2">
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            disabled={isFriend || isPending}
+            onClick={requestContact}
+          >
+            <UserPlus size={18} strokeWidth={2} />
+            {isFriend ? "Connecté" : isPending ? "Demande envoyée" : "Demander contact"}
+          </Button>
+          <Button variant="secondary" size="lg" onClick={dm} disabled={!isFriend}>
+            <MessageCircle size={18} strokeWidth={2} />
+          </Button>
+        </div>
+        {!isFriend ? (
+          <p className="text-[12px] text-ink-muted text-center mt-2">
+            La messagerie s&apos;ouvre une fois la demande acceptée.
+          </p>
+        ) : null}
+      </div>
+    </main>
+  );
+}
+
+function Stat({ value, label }: { value: React.ReactNode; label: string }) {
+  return (
+    <div className="text-center">
+      <div className="text-h2">{value}</div>
+      <div className="text-eyebrow text-ink-muted uppercase">{label}</div>
+    </div>
+  );
+}
