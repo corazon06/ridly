@@ -2,9 +2,11 @@
 import Link from "next/link";
 import {
   Bell,
+  Camera,
   ChevronRight,
   LogOut,
   MapPin,
+  Plus,
   Settings,
   ShieldCheck,
   Users,
@@ -36,8 +38,18 @@ export default function ProfilePage() {
 
   if (!me) return null;
 
+  const hasPhoto = !!me.photo_url;
+  const hasMoto = !!me.moto_type;
+  const hasGouts = me.gouts && me.gouts.length > 0;
+  const hasSorties = me.types_sorties && me.types_sorties.length > 0;
+  const hasDescription = !!me.description;
+  const hasAge = !!me.date_naissance;
+  const hasVille = !!me.ville;
+  const hasPrenom = !!me.prenom;
+
   return (
-    <main className="min-h-[100dvh]">
+    <main className="min-h-[100dvh] pb-10">
+      {/* Header */}
       <div className="safe-top px-[22px] pt-1 pb-2 flex items-center justify-between">
         <h1 className="text-h1">Mon profil</h1>
         <button
@@ -48,13 +60,27 @@ export default function ProfilePage() {
         </button>
       </div>
 
+      {/* Avatar + identité */}
       <div className="px-6 mt-4 flex items-center gap-4">
-        <Avatar src={me.photo_url} name={me.prenom} size="xl" online={me.is_online} />
+        {hasPhoto ? (
+          <Avatar src={me.photo_url} name={me.prenom} size="xl" online={me.is_online} />
+        ) : (
+          <Link href="/profile/edit">
+            <div className="h-[68px] w-[68px] rounded-full border-[2px] border-dashed border-line bg-bg-secondary flex items-center justify-center text-ink-muted">
+              <Camera size={22} strokeWidth={1.6} />
+            </div>
+          </Link>
+        )}
         <div className="flex-1">
-          <p className="text-h2">{me.prenom}, {ageFromBirthdate(me.date_naissance)}</p>
-          <p className="text-caption text-ink-muted flex items-center gap-1">
-            <MapPin size={12} /> {me.ville}
+          <p className="text-h2">
+            {hasPrenom ? me.prenom : <span className="text-ink-muted italic">Prénom</span>}
+            {hasAge ? `, ${ageFromBirthdate(me.date_naissance)}` : ""}
           </p>
+          {hasVille ? (
+            <p className="text-caption text-ink-muted flex items-center gap-1 mt-0.5">
+              <MapPin size={12} /> {me.ville}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-1.5 mt-2">
             {me.permis_verifie ? (
               <Tag tone="success">
@@ -66,6 +92,12 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Description */}
+      {hasDescription && (
+        <p className="px-6 mt-3 text-[13px] text-ink-soft leading-relaxed">{me.description}</p>
+      )}
+
+      {/* CTA modifier */}
       <div className="px-6 mt-4">
         <Link href="/profile/edit">
           <Button variant="secondary" fullWidth>
@@ -74,35 +106,65 @@ export default function ProfilePage() {
         </Link>
       </div>
 
+      {/* Stats */}
       <Card className="mx-6 mt-3 p-4 grid grid-cols-3 divide-x divide-line">
         <Stat top={String(me.rides_organises)} bottom="Organisés" />
         <Stat top={String(me.rides_rejoints)} bottom="Rejoints" />
-        <Stat top={`${me.km_parcourus}km`} bottom="Parcourus" />
+        <Stat top={me.km_parcourus > 0 ? `${me.km_parcourus}km` : "0km"} bottom="Parcourus" />
       </Card>
 
-      <h2 className="text-label px-6 mt-6 mb-2">Sa moto</h2>
-      <Card className="mx-6 p-4 flex items-center gap-3">
-        <div className="h-12 w-12 rounded-full bg-bg-secondary flex items-center justify-center">
-          🏍
-        </div>
-        <div className="flex-1">
-          <p className="text-label">
-            {me.moto_marque ?? MOTO_TYPE_LABEL[me.moto_type]} {me.moto_modele ?? ""}
-          </p>
-          <p className="text-caption text-ink-muted">
-            {MOTO_TYPE_LABEL[me.moto_type]}
-          </p>
-        </div>
-        <Tag tone="accent">{NIVEAU_LABEL[me.niveau]}</Tag>
-      </Card>
+      {/* Sa moto */}
+      <h2 className="text-label px-6 mt-6 mb-2">Ma moto</h2>
+      {hasMoto ? (
+        <Card className="mx-6 p-4 flex items-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-bg-secondary flex items-center justify-center text-[22px]">
+            🏍
+          </div>
+          <div className="flex-1">
+            <p className="text-label">
+              {me.moto_marque
+                ? `${me.moto_marque}${me.moto_modele ? ` ${me.moto_modele}` : ""}`
+                : MOTO_TYPE_LABEL[me.moto_type!]}
+            </p>
+            <p className="text-caption text-ink-muted">{MOTO_TYPE_LABEL[me.moto_type!]}</p>
+          </div>
+          {me.niveau ? <Tag tone="accent">{NIVEAU_LABEL[me.niveau]}</Tag> : null}
+        </Card>
+      ) : (
+        <Link href="/profile/edit" className="mx-6 block">
+          <div className="border-[1.5px] border-dashed border-line rounded-card p-4 flex items-center gap-3 text-ink-muted">
+            <div className="h-10 w-10 rounded-full bg-bg-secondary flex items-center justify-center">
+              <Plus size={18} strokeWidth={2} />
+            </div>
+            <span className="text-[13px] font-semibold">Ajouter une moto</span>
+          </div>
+        </Link>
+      )}
 
+      {/* Mes goûts */}
       <h2 className="text-label px-6 mt-6 mb-2">Mes goûts</h2>
-      <div className="px-6 flex flex-wrap gap-2">
-        {me.types_sorties.map((s) => (
-          <Tag key={s} tone="neutral">{SORTIE_LABEL[s]}</Tag>
-        ))}
-      </div>
+      {hasGouts ? (
+        <div className="px-6 flex flex-wrap gap-2">
+          {me.gouts.map((g) => (
+            <Tag key={g} tone="neutral">{g}</Tag>
+          ))}
+        </div>
+      ) : hasSorties ? (
+        <div className="px-6 flex flex-wrap gap-2">
+          {me.types_sorties.map((s) => (
+            <Tag key={s} tone="neutral">{SORTIE_LABEL[s]}</Tag>
+          ))}
+        </div>
+      ) : (
+        <Link href="/profile/edit" className="px-6 block">
+          <div className="border-[1.5px] border-dashed border-line rounded-card p-3 flex items-center gap-3 text-ink-muted">
+            <Plus size={16} strokeWidth={2} />
+            <span className="text-[13px] font-semibold">Ajouter mes goûts</span>
+          </div>
+        </Link>
+      )}
 
+      {/* Liens */}
       <div className="px-6 mt-7 space-y-2">
         <Row
           icon={<Bell size={18} />}
@@ -113,7 +175,7 @@ export default function ProfilePage() {
         />
         <Row
           icon={<Users size={18} />}
-          title="Mes Riders"
+          title="Mes Motards"
           desc={`${reseau.length} connexions · ${recues.length} en attente`}
           href="/profile/riders"
         />
@@ -124,7 +186,7 @@ export default function ProfilePage() {
           href="/profile/verify"
         />
         <Row
-          icon={<Bell size={18} />}
+          icon={<Settings size={18} />}
           title="Réglages & confidentialité"
           href="/profile/settings"
         />

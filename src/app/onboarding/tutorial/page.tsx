@@ -9,7 +9,7 @@ import { mockUsers } from "@/lib/mock/fixtures";
 const SLIDES = [
   {
     eyebrow: "01 / 03 — explorer",
-    title: "Trouve des motards proches",
+    title: "Trouve des motard(e)s proches",
     body: "Ouvre l'onglet Explorer pour voir qui roule autour de toi à Lyon.",
   },
   {

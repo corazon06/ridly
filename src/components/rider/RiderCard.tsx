@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { MapPin, UserPlus, Check } from "lucide-react";
+import { Check, MapPin, Navigation, UserCheck, UserPlus, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
@@ -28,10 +28,11 @@ export function RiderCard({
     ? distanceKm(origin, { lat: rider.lat, lng: rider.lng }).toFixed(1)
     : null;
   const age = ageFromBirthdate(rider.date_naissance);
-  const { sendConnection } = useActions();
-  const { reseau, envoyees } = useConnectionsLists();
+  const { sendConnection, cancelConnection, refuseConnection } = useActions();
+  const { reseau, envoyees, recues } = useConnectionsLists();
   const isConnected = reseau.some((u) => u.id === rider.id);
   const isPending = envoyees.some((c) => c.receveur_id === rider.id);
+  const isRecue = recues.some((c) => c.demandeur_id === rider.id);
 
   if (compact) {
     return (
@@ -53,7 +54,7 @@ export function RiderCard({
   }
 
   return (
-    <Link href={`/explorer/${rider.id}`}>
+    <Link href={`/explorer/${rider.id}`} className="block">
       <Card className="p-4 flex gap-3 active:scale-[0.99] transition-transform">
         <Avatar src={rider.photo_url} name={rider.prenom} size="lg" online={rider.is_online} />
         <div className="flex-1 min-w-0">
@@ -70,26 +71,57 @@ export function RiderCard({
                 {dist ? ` · ${dist} km` : ""}
               </div>
             </div>
-            {!isConnected && (
+            {isConnected ? (
+              <span className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-[10px] bg-success/10 text-success text-[12px] font-bold shrink-0">
+                <UserCheck size={12} strokeWidth={2.5} /> Ajouté
+              </span>
+            ) : isPending ? (
+              <div className="inline-flex items-center gap-1 shrink-0">
+                <span className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-[10px] bg-bg-secondary text-ink-muted text-[12px] font-bold">
+                  <Navigation size={12} strokeWidth={2} /> Envoyé
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    cancelConnection(rider.id);
+                  }}
+                  className="h-[30px] w-[30px] rounded-[10px] bg-accent text-bg-primary flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
+                  title="Annuler la demande"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              </div>
+            ) : isRecue ? (
+              <div className="inline-flex items-center gap-1 shrink-0">
+                <span className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-[10px] bg-accent-soft text-accent-dark text-[12px] font-bold">
+                  <Check size={12} strokeWidth={2.5} /> Reçu
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    refuseConnection(rider.id);
+                  }}
+                  className="h-[30px] w-[30px] rounded-[10px] bg-accent text-bg-primary flex items-center justify-center shrink-0 active:opacity-80 transition-opacity"
+                  title="Refuser"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              </div>
+            ) : (
               <button
                 onClick={(e) => {
                   e.preventDefault();
-                  if (!isPending) sendConnection(rider.id);
+                  sendConnection(rider.id);
                 }}
-                className={`h-9 w-9 rounded-[10px] flex items-center justify-center shrink-0 transition-colors ${
-                  isPending
-                    ? "bg-accent-soft text-accent cursor-default"
-                    : "bg-ink text-bg-primary active:opacity-80"
-                }`}
-                title={isPending ? "Demande envoyée" : "Envoyer une demande"}
+                className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-[10px] bg-ink text-bg-primary text-[12px] font-bold shrink-0 active:opacity-80 transition-opacity"
               >
-                {isPending ? <Check size={16} strokeWidth={2.4} /> : <UserPlus size={16} strokeWidth={1.8} />}
+                <UserPlus size={12} strokeWidth={2} /> Ajouter
               </button>
             )}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <Tag tone="accent">{NIVEAU_LABEL[rider.niveau]}</Tag>
-            <Tag tone="neutral">{MOTO_TYPE_LABEL[rider.moto_type]}</Tag>
+            {rider.niveau ? <Tag tone="accent">{NIVEAU_LABEL[rider.niveau]}</Tag> : null}
+            {rider.moto_type ? <Tag tone="neutral">{MOTO_TYPE_LABEL[rider.moto_type]}</Tag> : null}
             {rider.types_sorties.slice(0, 1).map((s) => (
               <Tag key={s} tone="neutral">{SORTIE_LABEL[s]}</Tag>
             ))}

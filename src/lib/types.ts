@@ -27,6 +27,15 @@ export type SortieType =
 
 export type DureeRide = "1h" | "2h" | "3h" | "4h" | "demi_journee" | "journee" | "2j" | "3j" | "plus";
 
+export type AllureRide = "tranquille" | "roulant" | "sportif" | "engage";
+
+export const ALLURE_LABEL: Record<AllureRide, string> = {
+  tranquille: "🐢 Tranquille",
+  roulant:    "😎 Roulant",
+  sportif:    "🔥 Sportif",
+  engage:     "⚡ Engagé",
+};
+
 export type RideStatut =
   | "ouvert"
   | "complet"
@@ -56,14 +65,15 @@ export interface User {
   description: string | null;
   is_online: boolean;
 
-  moto_type: MotoType;
+  moto_type: MotoType | null;
   moto_marque: string | null;
   moto_modele: string | null;
   moto_cylindree: number | null;
   moto_annee: number | null;
-  niveau: Niveau;
+  niveau: Niveau | null;
 
   types_sorties: SortieType[];
+  gouts: string[];
 
   selfie_valide: boolean;
   permis_verifie: boolean;
@@ -92,6 +102,9 @@ export interface Ride {
   duree_estimee: DureeRide;
   type_sortie: SortieType[];
   nb_places_max: number;
+  arrets: string[];
+  allure: AllureRide | null;
+  niveau_requis: Niveau | null;
   mot_libre: string | null;
   validation_manuelle: boolean;
   statut: RideStatut;

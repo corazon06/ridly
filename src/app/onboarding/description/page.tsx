@@ -1,34 +1,42 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Plus } from "lucide-react";
+import { Check } from "lucide-react";
 import { StepHeader } from "@/components/onboarding/StepHeader";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { useActions } from "@/lib/data/api";
 import { ME_ID } from "@/lib/mock/fixtures";
+import { useMock } from "@/lib/mock/store";
 
-const SUGGESTIONS = ["Chill", "Confirmé", "Sortie week-end", "Café", "Matinal", "Twisty"];
 const MAX = 250;
 
 export default function StepDescription() {
   const router = useRouter();
-  const { setOnboardingDraft, onboardingDraft, setMe } = useActions();
+  const { setOnboardingDraft, onboardingDraft, setMe, upsertUser } = useActions();
+  const me = useMock((s) => s.users.find((u) => u.id === ME_ID));
   const [text, setText] = useState(onboardingDraft.description ?? "");
-  const [picked, setPicked] = useState<string[]>([]);
-
-  function toggle(s: string) {
-    const has = picked.includes(s);
-    setPicked((p) => (has ? p.filter((x) => x !== s) : [...p, s]));
-    if (!has && !text.toLowerCase().includes(s.toLowerCase())) {
-      setText((t) => (t ? `${t} ${s}` : s).slice(0, MAX));
-    }
-  }
-
   function finish() {
+    const draft = { ...onboardingDraft, description: text };
     setOnboardingDraft({ description: text });
-    // For the demo we sign in as Maxime so the new user lands on a
-    // populated session. Real signup would persist `onboardingDraft` first.
+    // Apply draft data onto Maxime's profile (mock: no real user creation)
+    if (me) {
+      upsertUser({
+        ...me,
+        ...(draft.prenom && { prenom: draft.prenom }),
+        ...(draft.date_naissance && { date_naissance: draft.date_naissance }),
+        ...(draft.ville && { ville: draft.ville }),
+        ...(draft.sexe && { sexe: draft.sexe }),
+        ...(draft.moto_type && { moto_type: draft.moto_type }),
+        ...(draft.moto_marque !== undefined && { moto_marque: draft.moto_marque }),
+        ...(draft.moto_modele !== undefined && { moto_modele: draft.moto_modele }),
+        ...(draft.types_sorties && { types_sorties: draft.types_sorties }),
+        ...(draft.gouts !== undefined && { gouts: draft.gouts }),
+        ...(draft.description !== undefined && { description: draft.description || null }),
+        ...(draft.photo_url && { photo_url: draft.photo_url }),
+        ...(draft.niveau && { niveau: draft.niveau }),
+      });
+    }
     setMe(ME_ID);
     router.replace("/onboarding/tutorial");
   }
@@ -59,34 +67,7 @@ export default function StepDescription() {
           </div>
         </div>
 
-        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-muted mt-5 mb-2.5">
-          Suggestions — clic pour ajouter
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {SUGGESTIONS.map((s) => {
-            const active = picked.includes(s);
-            return (
-              <button
-                key={s}
-                onClick={() => toggle(s)}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-chip text-[13px] font-semibold border-[1.5px] ${
-                  active
-                    ? "bg-accent-soft border-accent/30 text-accent-dark"
-                    : "bg-white border-line text-ink"
-                }`}
-              >
-                <span
-                  className={`h-3.5 w-3.5 rounded-full inline-flex items-center justify-center text-[11px] font-extrabold leading-none ${
-                    active ? "bg-accent text-bg-primary" : "bg-accent-soft text-accent"
-                  }`}
-                >
-                  {active ? <Check size={9} strokeWidth={4} /> : <Plus size={9} strokeWidth={4} />}
-                </span>
-                {s}
-              </button>
-            );
-          })}
-        </div>
+
       </div>
 
       <div className="absolute left-0 right-0 bottom-0 px-[22px] pt-5 pb-7 sticky-bottom-fade space-y-2">

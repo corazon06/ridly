@@ -48,7 +48,7 @@ export default function RequestSentPage() {
           Demande envoyée à <em className="not-italic text-accent">{rider.prenom}</em>
         </h1>
         <p className="text-bodyLg text-ink-soft mb-7 max-w-[280px]">
-          Tu seras notifié quand il aura répondu. La plupart des riders répondent en moins de 2 h.
+          Tu seras notifié quand il aura répondu. La plupart des motard(e)s répondent en moins de 2 h.
         </p>
 
         {/* Rider preview card */}

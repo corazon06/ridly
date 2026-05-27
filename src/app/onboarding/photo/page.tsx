@@ -36,7 +36,7 @@ export default function StepPhoto() {
         step={1}
         eyebrow="ta photo"
         title="On a besoin de voir ta tête"
-        subtitle="Pour la confiance entre motards. Aucune photo retouchée acceptée."
+        subtitle="Pour la confiance entre motard(e)s. Aucune photo retouchée acceptée."
       />
 
       <div className="px-6 pt-2 pb-48 flex-1 no-scrollbar overflow-y-auto">
@@ -116,7 +116,7 @@ export default function StepPhoto() {
         </ul>
       </div>
 
-      <div className="absolute left-0 right-0 bottom-0 px-[22px] pt-5 pb-7 sticky-bottom-fade">
+      <div className="absolute left-0 right-0 bottom-0 px-[22px] pt-5 pb-7 sticky-bottom-fade space-y-2">
         <Button
           variant="primary"
           size="lg"
@@ -126,6 +126,12 @@ export default function StepPhoto() {
         >
           Continuer <ArrowRight size={16} strokeWidth={2.2} />
         </Button>
+        <button
+          onClick={() => router.push("/onboarding/infos")}
+          className="w-full text-center text-[13px] font-semibold text-ink-muted underline"
+        >
+          Passer cette étape
+        </button>
       </div>
     </main>
   );

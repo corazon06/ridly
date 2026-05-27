@@ -1,8 +1,7 @@
 "use client";
-import { Bell, Filter, MessageCircle, Search, Users, Bike, X } from "lucide-react";
+import { Bell, Filter, Search, Users, Bike, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Chip } from "@/components/ui/Tag";
 import { Sheet } from "@/components/ui/Sheet";
 import { RangeSlider, Slider } from "@/components/ui/RangeSlider";
@@ -10,9 +9,6 @@ import { Button } from "@/components/ui/Button";
 import { RiderCard } from "@/components/rider/RiderCard";
 import { Avatar } from "@/components/ui/Avatar";
 import {
-  useActions,
-  useConnectionsLists,
-  useConversations,
   useMe,
   useNearbyRiders,
   useSuggestions,
@@ -37,28 +33,22 @@ type ExplorerMode = "riders" | "rides";
 export default function ExplorerPage() {
   const me = useMe();
   const [mode, setMode] = useState<ExplorerMode>("riders");
-  const router = useRouter();
   const all = useNearbyRiders();
   const suggestions = useSuggestions();
   const unread = useUnreadNotificationsCount();
-  const { reseau } = useConnectionsLists();
-  const conversations = useConversations();
-  const { startDmWith } = useActions();
-  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
-
-  // Nouvelles connexions sans message = notifs "vient de vous ajouter"
-  const newConnectionNotifs = reseau.filter((u) => {
-    if (dismissedIds.includes(u.id)) return false;
-    const conv = conversations.find(
-      (c) => c.type === "dm" && c.participant_ids.includes(u.id)
-    );
-    return !conv || !conv.preview;
+  // Horloge live — mise à jour toutes les 10 s
+  const [clock, setClock] = useState(() => {
+    const d = new Date();
+    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   });
+  useEffect(() => {
+    const id = setInterval(() => {
+      const d = new Date();
+      setClock(d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
+    }, 10_000);
+    return () => clearInterval(id);
+  }, []);
 
-  function sendMessage(userId: string) {
-    const cid = startDmWith(userId);
-    router.push(`/messages/${cid}`);
-  }
   const [active, setActive] = useState("A proximité");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [maxDistance, setMaxDistance] = useState(50);
@@ -170,10 +160,10 @@ export default function ExplorerPage() {
             </Link>
             <div>
               <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted font-bold">
-                9:41 · 19°
+                {clock} · 19°
               </p>
               <p className="font-display font-bold text-[14px] -mt-0.5">
-                Salut, {me?.prenom ?? "Rider"}
+                Salut, {me?.prenom ?? "Motard"}
               </p>
             </div>
           </div>
@@ -205,7 +195,7 @@ export default function ExplorerPage() {
             }`}
           >
             <Users size={18} strokeWidth={1.8} />
-            Riders
+            Motards
           </button>
           <button
             onClick={() => setMode("rides")}
@@ -223,20 +213,22 @@ export default function ExplorerPage() {
       {mode === "riders" && (
         <div className="px-6 pt-3">
           <h1 className="text-h1 mt-2 leading-tight">
-            {filtered.length === 0 ? "Aucun motard" : `${filtered.length} motards`}{" "}
+            {filtered.length === 0 ? "Aucun motard" : `${filtered.length} motard(e)s`}{" "}
             <span className="text-accent">près de toi</span> ce matin
           </h1>
           <p className="text-[12.5px] text-ink-muted mt-1.5">
             {onlineCount} en ligne maintenant
           </p>
-          <button
-            onClick={() => setFiltersOpen(true)}
-            className="mt-4 w-full h-10 rounded-card bg-ink text-bg-primary flex items-center justify-center gap-2 font-display font-bold text-[13px]"
-          >
-            <Filter size={15} /> Filtres avancés
-          </button>
           <div className="mt-4">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted mb-2">Filtres rapides</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">Filtres rapides</p>
+              <button
+                onClick={() => setFiltersOpen(true)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-ink-muted hover:text-ink transition-colors"
+              >
+                <Filter size={12} strokeWidth={2} /> Avancés
+              </button>
+            </div>
             <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-6 px-6 no-scrollbar">
               {FILTERS.map((f) => (
                 <Chip key={f} active={active === f} onClick={() => setActive(f)}>
@@ -246,31 +238,6 @@ export default function ExplorerPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {newConnectionNotifs.length > 0 && mode === "riders" && (
-        <section className="mt-4">
-          <p className="px-6 font-mono text-[10px] uppercase tracking-wider text-ink-muted mb-2">Dis bonjour 👋</p>
-          <div className="flex gap-4 overflow-x-auto px-6 pb-1 no-scrollbar">
-            {newConnectionNotifs.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => sendMessage(u.id)}
-                className="shrink-0 flex flex-col items-center gap-1.5 w-14"
-              >
-                <div className="relative">
-                  <Avatar src={u.photo_url} name={u.prenom} size="md" online={u.is_online} />
-                  <span className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full bg-accent flex items-center justify-center ring-2 ring-bg-primary">
-                    <MessageCircle size={10} className="text-white" />
-                  </span>
-                </div>
-                <span className="font-display font-bold text-[11px] text-ink truncate w-full text-center">
-                  {u.prenom}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
       )}
 
       {mode === "riders" && suggestions.length > 0 ? (
@@ -297,9 +264,9 @@ export default function ExplorerPage() {
         <section className="mt-6 px-6 pb-32">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-label">À proximité</h2>
-            <span className="text-eyebrow text-ink-muted uppercase">{filtered.length} motards</span>
+            <span className="text-eyebrow text-ink-muted uppercase">{filtered.length} motard(e)s</span>
           </div>
-          <div className="space-y-3">
+          <div className="flex flex-col gap-[5px]">
             {filtered.map((r) => (
               <RiderCard
                 key={r.id}
@@ -356,24 +323,29 @@ export default function ExplorerPage() {
               <span className="text-accent">près de toi</span>
             </h1>
             <p className="text-[12.5px] text-ink-muted mt-1.5">
-              {allRides.filter((r) => {
-                const d = new Date(r.date_ride);
-                const now = new Date();
-                const day = d.getDay();
-                const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
-                return (day === 6 || day === 0) && diff >= 0 && diff <= 7;
-              }).length} balades organisées ce weekend
+              {(() => {
+                const n = allRides.filter((r) => {
+                  const d = new Date(r.date_ride);
+                  const now = new Date();
+                  const day = d.getDay();
+                  const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
+                  return (day === 6 || day === 0) && diff >= 0 && diff <= 7;
+                }).length;
+                const s = n > 1 ? "s" : "";
+                return `${n} balade${s} organisée${s} ce weekend`;
+              })()}
             </p>
-            <button
-              onClick={() => setRidesFiltersOpen(true)}
-              className="mt-4 w-full h-10 rounded-card bg-ink text-bg-primary flex items-center justify-center gap-2 font-display font-bold text-[13px]"
-            >
-              <Filter size={15} /> Filtres avancés
-            </button>
-
             {/* Filtres rapides Balades */}
             <div className="mt-4">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted mb-2">Filtres rapides</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">Filtres rapides</p>
+                <button
+                  onClick={() => setRidesFiltersOpen(true)}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-ink-muted hover:text-ink transition-colors"
+                >
+                  <Filter size={12} strokeWidth={2} /> Avancés
+                </button>
+              </div>
               <div className="flex gap-2 overflow-x-auto -mx-6 px-6 pb-2 no-scrollbar">
                 <Chip active={rideDateFilter === "today"} onClick={() => setRideDateFilter(rideDateFilter === "today" ? null : "today")}>Aujourd'hui</Chip>
                 <Chip active={rideDateFilter === "week"} onClick={() => setRideDateFilter(rideDateFilter === "week" ? null : "week")}>Cette semaine</Chip>
@@ -390,9 +362,14 @@ export default function ExplorerPage() {
           {filteredRides.length === 0 ? (
             <p className="py-16 text-center text-caption text-ink-muted">Aucune balade ne correspond à tes filtres.</p>
           ) : (
-            <div className="space-y-3 mt-4">
+            <div className="flex flex-col gap-[5px] mt-4">
               {filteredRides.map((r) => (
-                <RideCard key={r.id} ride={r} users={users} />
+                <RideCard
+                  key={r.id}
+                  ride={r}
+                  users={users}
+                  badge={me?.id === r.createur_id ? { label: "Tu organises", tone: "accent" } : undefined}
+                />
               ))}
             </div>
           )}

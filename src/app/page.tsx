@@ -68,7 +68,7 @@ export default function WelcomePage() {
           la passion de la <em className="not-italic text-accent">moto</em>
         </h1>
         <p className="text-bodyLg text-ink-soft max-w-[280px] mx-auto">
-          Trouve des motards proches de toi pour rouler ensemble.
+          Trouve des motard(e)s proches de toi pour rouler ensemble.
         </p>
       </div>
 

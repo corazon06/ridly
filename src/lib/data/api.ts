@@ -182,11 +182,13 @@ export function usePastRidesWithReports(): { ride: Ride; report: RideReport | un
   const me = useMe();
   const rides = useMock((s) => s.rides);
   const reports = useMock((s) => s.rideReports);
+  const hiddenRideIds = useMock((s) => s.hiddenRideIds);
   if (!me) return [];
   const today = new Date().toISOString().slice(0, 10);
 
   return rides
     .filter((r) => r.date_ride < today)
+    .filter((r) => !hiddenRideIds.includes(r.id))
     .filter(
       (r) =>
         r.createur_id === me.id ||
@@ -240,6 +242,9 @@ export function useActions() {
     joinRide: m.joinRide,
     acceptParticipant: m.acceptParticipant,
     sendConnection: m.sendConnection,
+    hideRideFromHistory: m.hideRideFromHistory,
+    cancelConnection: m.cancelConnection,
+    refuseConnection: m.refuseConnection,
     acceptConnection: m.acceptConnection,
     sendMessage: m.sendMessage,
     startDmWith: m.startDmWith,

@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Check, Search, Star } from "lucide-react";
+import { Check, Search, Star, X } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { RideCard } from "@/components/ride/RideCard";
 import {
+  useActions,
   useLifetimeStats,
   useMe,
   useMyRides,
@@ -230,7 +231,7 @@ function PastFeed({
           </p>
           <p className="font-display font-bold text-[15px] leading-snug tracking-tight">
             <em className="not-italic text-accent">{stats.rides} ride{stats.rides > 1 ? "s" : ""}</em>{" "}
-            · {stats.km.toLocaleString("fr-FR")} km · {stats.riders} motards rencontrés
+            · {stats.km.toLocaleString("fr-FR")} km · {stats.riders} motard(e)s rencontrés
           </p>
         </div>
       </div>
@@ -245,54 +246,114 @@ function PastCard({
   ride: Ride;
   report: RideReport | undefined;
 }) {
+  const { hideRideFromHistory } = useActions();
+  const [pending, setPending] = useState(false);
+  const [fading, setFading] = useState(false);
+  const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const d = new Date(ride.date_ride);
   const when = format(d, "EEE d MMM", { locale: fr });
-  const present = (ride.participants ?? []).filter(
-    (p) => p.statut === "present"
-  ).length;
+  const present = (ride.participants ?? []).filter((p) => p.statut === "present").length;
   const km = report?.km ?? 0;
   const rated = report?.rated ?? false;
 
+  function startDelete() {
+    setPending(true);
+    deleteTimer.current = setTimeout(() => {
+      setFading(true);
+      fadeTimer.current = setTimeout(() => {
+        hideRideFromHistory(ride.id);
+      }, 2500);
+    }, 10000);
+  }
+
+  function cancel() {
+    if (deleteTimer.current) clearTimeout(deleteTimer.current);
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    setPending(false);
+    setFading(false);
+  }
+
+  useEffect(() => () => {
+    if (deleteTimer.current) clearTimeout(deleteTimer.current);
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+  }, []);
+
   return (
-    <Link
-      href={`/rides/${ride.id}`}
-      className="block bg-white border border-line rounded-card p-3 flex gap-3 items-center"
+    <div
+      style={{
+        opacity: fading ? 0 : pending ? 0.45 : 1,
+        transition: fading ? "opacity 2.5s ease" : "opacity 0.3s ease",
+        pointerEvents: fading ? "none" : "auto",
+      }}
     >
-      {/* Mini map thumb */}
-      <div
-        className="h-14 w-14 rounded-[12px] shrink-0 relative overflow-hidden"
-        style={{
-          background: "linear-gradient(180deg, #E8DFCB 0%, #E0D6BE 100%)",
-        }}
+      <Link
+        href={`/rides/${ride.id}`}
+        className="block bg-white border border-line rounded-card p-3 flex gap-3 items-center"
       >
-        <svg viewBox="0 0 60 60" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-          <path d="M -5 35 Q 15 50 30 30 T 65 25" stroke="#FBF8F0" strokeWidth="3" fill="none" />
-          <path d="M -5 35 Q 15 50 30 30 T 65 25" stroke="#B25234" strokeWidth="1.5" strokeDasharray="3 2" fill="none" />
-        </svg>
-        <span className="absolute left-[30%] top-[55%] h-2.5 w-2.5 rounded-full bg-accent border-[1.5px] border-white" />
-      </div>
+        {/* Mini map thumb */}
+        <div
+          className="h-14 w-14 rounded-[12px] shrink-0 relative overflow-hidden"
+          style={{ background: "linear-gradient(180deg, #E8DFCB 0%, #E0D6BE 100%)" }}
+        >
+          <svg viewBox="0 0 60 60" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+            <path d="M -5 35 Q 15 50 30 30 T 65 25" stroke="#FBF8F0" strokeWidth="3" fill="none" />
+            <path d="M -5 35 Q 15 50 30 30 T 65 25" stroke="#B25234" strokeWidth="1.5" strokeDasharray="3 2" fill="none" />
+          </svg>
+          <span className="absolute left-[30%] top-[55%] h-2.5 w-2.5 rounded-full bg-accent border-[1.5px] border-white" />
+        </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink-muted font-semibold capitalize">
-          {when}
-        </p>
-        <h4 className="font-display font-bold text-[14px] tracking-[-0.01em] mt-px">
-          {ride.titre ?? "Ride"}
-        </h4>
-        <p className="text-[11px] text-ink-muted mt-px">
-          {present} motards · {km} km
-        </p>
-      </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-ink-muted font-semibold capitalize">
+            {when}
+          </p>
+          <h4 className="font-display font-bold text-[14px] tracking-[-0.01em] mt-px">
+            {ride.titre ?? "Ride"}
+          </h4>
+          <p className="text-[11px] text-ink-muted mt-px">
+            {present} motard(e)s · {km} km
+          </p>
+        </div>
 
-      {rated ? (
-        <span className="font-display font-bold text-[10px] bg-bg-secondary text-ink-muted px-2.5 py-1.5 rounded-chip whitespace-nowrap inline-flex items-center gap-1">
-          <Check size={9} strokeWidth={3} /> Noté
-        </span>
-      ) : (
-        <span className="font-display font-bold text-[10px] bg-accent text-bg-primary px-2.5 py-1.5 rounded-chip whitespace-nowrap">
-          À noter
-        </span>
-      )}
-    </Link>
+        <div className="flex items-center gap-1 shrink-0">
+          {pending ? (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); cancel(); }}
+              className="relative h-[30px] px-2.5 rounded-[8px] overflow-hidden text-bg-primary text-[11px] font-bold whitespace-nowrap"
+              style={{ background: "#E8E4DC", color: "#2A2624" }}
+            >
+              <span
+                key="drain-annuler"
+                className="absolute inset-0 bg-ink rounded-[8px]"
+                style={{ animation: "drain-rtl 10s linear forwards", transformOrigin: "left center" }}
+              />
+              <span className="relative z-10 text-bg-primary">Annuler</span>
+            </button>
+          ) : rated ? (
+            <span className="font-display font-bold text-[10px] bg-bg-secondary text-ink-muted px-2.5 py-1.5 rounded-chip whitespace-nowrap inline-flex items-center gap-1">
+              <Check size={9} strokeWidth={3} /> Noté
+            </span>
+          ) : (
+            <span className="font-display font-bold text-[10px] bg-accent text-bg-primary px-2.5 py-1.5 rounded-chip whitespace-nowrap">
+              À noter
+            </span>
+          )}
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (pending) cancel(); else startDelete(); }}
+            className="h-[30px] w-[30px] rounded-[8px] bg-accent text-bg-primary flex items-center justify-center active:opacity-80 transition-opacity"
+            title={pending ? "Annuler la suppression" : "Supprimer de l'historique"}
+          >
+            <X size={13} strokeWidth={2.5} />
+          </button>
+          <style>{`
+            @keyframes drain-rtl {
+              from { transform: scaleX(1); }
+              to   { transform: scaleX(0); }
+            }
+          `}</style>
+        </div>
+      </Link>
+    </div>
   );
 }

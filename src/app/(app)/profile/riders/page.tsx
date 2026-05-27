@@ -26,7 +26,7 @@ function MyRidersInner() {
 
   return (
     <main className="min-h-[100dvh]">
-      <TopBar title="Mes Riders" />
+      <TopBar title="Mes Motards" />
 
       {/* Tabs (mockup-aligned, same as /rides) */}
       <div className="mx-[22px] mt-2 p-1 bg-bg-secondary rounded-[14px] flex gap-1">

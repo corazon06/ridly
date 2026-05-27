@@ -33,6 +33,8 @@ export default function MessagesPage() {
   }
 
   const filtered = conversations.filter((c) => {
+    // DMs sans aucun message sont déjà affichés dans "newConnections" — pas de doublon
+    if (!query.trim() && c.type === "dm" && !c.preview) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     const ride = c.ride_id ? rides.find((r) => r.id === c.ride_id) : null;
@@ -152,7 +154,7 @@ export default function MessagesPage() {
                       ) : null}
                     </div>
                     <p className="text-caption text-ink-muted truncate">
-                      {c.preview ?? "—"}
+                      {c.preview ?? (c.type === "dm" ? "Commence la conversation…" : "Aucun message")}
                     </p>
                   </div>
                   {c.unread_count ? (

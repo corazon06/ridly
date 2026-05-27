@@ -1,11 +1,16 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Bike, Check, Flame, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Bike, Check, Flame, Plus, Sparkles, Trash2, Zap } from "lucide-react";
 import { StepHeader } from "@/components/onboarding/StepHeader";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Chip } from "@/components/ui/Tag";
 import { useActions } from "@/lib/data/api";
 import { MOTO_TYPE_LABEL, type MotoType, type Niveau } from "@/lib/types";
+
+type MotoEntry = { type: MotoType | null; marque: string; modele: string };
+const emptyMoto = (): MotoEntry => ({ type: null, marque: "", modele: "" });
 
 const MOTO_OPTIONS: { id: MotoType; sub: string }[] = [
   { id: "roadster", sub: "Polyvalent, urbain" },
@@ -25,13 +30,35 @@ const NIVEAU_OPTIONS: { id: Niveau; label: string; icon: React.ReactNode }[] = [
 export default function StepMoto() {
   const router = useRouter();
   const { setOnboardingDraft, onboardingDraft } = useActions();
-  const [moto, setMoto] = useState<MotoType | null>(onboardingDraft.moto_type ?? null);
+  const [moto, setMoto] = useState<MotoType[]>(onboardingDraft.moto_type ? [onboardingDraft.moto_type] : []);
+
+  function toggleMotoType(m: MotoType) {
+    setMoto((prev) => prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]);
+  }
   const [niveau, setNiveau] = useState<Niveau | null>(onboardingDraft.niveau ?? null);
-  const valid = moto && niveau;
+  const [motos, setMotos] = useState<MotoEntry[]>([]);
+  const valid = moto.length > 0 && niveau;
+
+  function addMoto() {
+    if (motos.length >= 10) return;
+    setMotos((prev) => [...prev, emptyMoto()]);
+  }
+  function removeMoto(i: number) {
+    setMotos((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function updateMoto(i: number, patch: Partial<MotoEntry>) {
+    setMotos((prev) => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  }
 
   function next() {
     if (!valid) return;
-    setOnboardingDraft({ moto_type: moto!, niveau: niveau! });
+    const first = motos[0];
+    setOnboardingDraft({
+      moto_type: moto[0],
+      niveau: niveau!,
+      moto_marque: first?.marque || null,
+      moto_modele: first?.modele || null,
+    });
     router.push("/onboarding/sorties");
   }
 
@@ -41,7 +68,7 @@ export default function StepMoto() {
         step={3}
         eyebrow="ta moto"
         title="Parle-nous de ta moto"
-        subtitle="On utilise ces infos pour te connecter aux bons riders, pas pour te juger."
+        subtitle="On utilise ces infos pour te connecter aux bons motard(e)s, pas pour te juger."
       />
 
       <div className="px-6 pt-3 pb-48 flex-1 no-scrollbar overflow-y-auto">
@@ -51,11 +78,11 @@ export default function StepMoto() {
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           {MOTO_OPTIONS.map((m) => {
-            const active = moto === m.id;
+            const active = moto.includes(m.id);
             return (
               <button
                 key={m.id}
-                onClick={() => setMoto(m.id)}
+                onClick={() => toggleMotoType(m.id)}
                 className={`relative text-left rounded-card border-[1.5px] p-3.5 min-h-[110px] flex flex-col gap-2.5 ${
                   active
                     ? "bg-ink text-bg-primary border-ink"
@@ -113,6 +140,50 @@ export default function StepMoto() {
               </button>
             );
           })}
+        </div>
+
+        {/* Mes motos */}
+        <div className="mt-7">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-label">Mes motos</span>
+            {motos.length > 0 && (
+              <span className="font-mono text-[10px] text-ink-muted">{motos.length}/10</span>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {motos.map((entry, i) => (
+              <div key={i} className="rounded-card border border-line bg-white p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-display font-bold text-[12px] text-ink-muted uppercase tracking-wider">Moto {i + 1}</span>
+                  <button type="button" onClick={() => removeMoto(i)} className="h-7 w-7 rounded-full bg-bg-secondary flex items-center justify-center text-accent">
+                    <Trash2 size={13} strokeWidth={2} />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(Object.keys(MOTO_TYPE_LABEL) as MotoType[]).map((t) => (
+                    <Chip key={t} active={entry.type === t} onClick={() => updateMoto(i, { type: entry.type === t ? null : t })}>
+                      {MOTO_TYPE_LABEL[t]}
+                    </Chip>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input placeholder="Marque" value={entry.marque} onChange={(e) => updateMoto(i, { marque: e.target.value })} />
+                  <Input placeholder="Modèle" value={entry.modele} onChange={(e) => updateMoto(i, { modele: e.target.value })} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {motos.length < 10 && (
+            <button
+              type="button"
+              onClick={addMoto}
+              className="mt-2.5 w-full h-10 rounded-card bg-ink flex items-center justify-center gap-2 text-[13px] font-display font-bold text-bg-primary"
+            >
+              <Plus size={15} strokeWidth={2.2} /> Ajouter une moto
+            </button>
+          )}
         </div>
       </div>
 

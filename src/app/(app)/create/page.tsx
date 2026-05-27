@@ -1,7 +1,7 @@
 "use client";
 import { ChevronLeft, ChevronRight, MapPin, Minus, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Tag } from "@/components/ui/Tag";
@@ -11,6 +11,10 @@ import {
   type DureeRide,
   SORTIE_LABEL,
   type SortieType,
+  ALLURE_LABEL,
+  type AllureRide,
+  NIVEAU_LABEL,
+  type Niveau,
   type Ride,
 } from "@/lib/types";
 import { format } from "date-fns";
@@ -23,6 +27,8 @@ export default function CreateRidePage() {
   const { reseau } = useConnectionsLists();
 
   const [pointDepart, setPointDepart] = useState("Place Bellecour, Lyon 2e");
+  const [pointArrivee, setPointArrivee] = useState("");
+  const [arrets, setArrets] = useState<string[]>([]);
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 4);
@@ -37,7 +43,9 @@ export default function CreateRidePage() {
     { label: "Plusieurs jours", values: ["2j", "3j", "plus"] },
   ];
   const [sorties, setSorties] = useState<SortieType[]>(["balade", "cafe"]);
-  const [places, setPlaces] = useState(8);
+  const [places, setPlaces] = useState(8); // min 2, max 15
+  const [allure, setAllure] = useState<AllureRide | null>(null);
+  const [niveauRequis, setNiveauRequis] = useState<Niveau | "libre">("libre");
   const [mot, setMot] = useState("");
   const [validation, setValidation] = useState(true);
 
@@ -57,6 +65,9 @@ export default function CreateRidePage() {
       duree_estimee: duree,
       type_sortie: sorties,
       nb_places_max: places,
+      arrets,
+      allure,
+      niveau_requis: niveauRequis === "libre" ? null : niveauRequis,
       mot_libre: mot || null,
       validation_manuelle: validation,
       statut: "ouvert",
@@ -142,12 +153,69 @@ export default function CreateRidePage() {
 
       <div className="px-6 mt-4 space-y-5">
         <div>
-          <Label>Point de départ</Label>
-          <Input
-            icon={<MapPin size={18} className="text-accent-dark" />}
-            value={pointDepart}
-            onChange={(e) => setPointDepart(e.target.value)}
-          />
+          <div className="flex gap-3">
+            {/* Ligne itinéraire */}
+            <div className="flex flex-col items-center pt-[38px]">
+              <div className="h-2.5 w-2.5 rounded-full bg-accent-dark shrink-0" />
+              <div className="w-[2px] bg-line my-1" style={{ flex: 1, minHeight: 12 + arrets.length * 62 }} />
+              {arrets.map((_, i) => (
+                <div key={i} className="flex flex-col items-center">
+                  <div className="h-2 w-2 rounded-full bg-ink-muted shrink-0" />
+                  <div className="w-[2px] bg-line my-1" style={{ height: 54 }} />
+                </div>
+              ))}
+              <div className="h-2.5 w-2.5 rounded-full border-[2px] border-ink-muted bg-white shrink-0" />
+            </div>
+
+            {/* Champs */}
+            <div className="flex-1 space-y-2">
+              <div>
+                <Label>Point de départ</Label>
+                <Input
+                  value={pointDepart}
+                  onChange={(e) => setPointDepart(e.target.value)}
+                  placeholder="Place Bellecour, Lyon 2e"
+                />
+              </div>
+
+              {/* Bouton ajouter un arrêt */}
+              <button
+                type="button"
+                onClick={() => setArrets((p) => [...p, ""])}
+                className="w-full h-9 rounded-card border-[1.5px] border-dashed border-line text-[12px] font-semibold text-ink-muted flex items-center justify-center gap-1.5"
+              >
+                <Plus size={13} strokeWidth={2.5} /> Ajouter un arrêt
+              </button>
+
+              {/* Arrêts dynamiques */}
+              {arrets.map((a, i) => (
+                <div key={i} className="flex gap-1.5 items-center">
+                  <Input
+                    value={a}
+                    onChange={(e) => setArrets((p) => p.map((x, idx) => idx === i ? e.target.value : x))}
+                    placeholder={`Arrêt ${i + 1}`}
+                    className="flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setArrets((p) => p.filter((_, idx) => idx !== i))}
+                    className="h-[46px] w-[46px] rounded-card bg-accent text-bg-primary flex items-center justify-center shrink-0"
+                  >
+                    <X size={14} strokeWidth={2.5} />
+                  </button>
+                </div>
+              ))}
+
+              <div>
+                <Label>Point d'arrivée <span className="text-ink-muted font-normal">(optionnel)</span></Label>
+                <Input
+                  value={pointArrivee}
+                  onChange={(e) => setPointArrivee(e.target.value)}
+                  placeholder="Laisser vide si boucle"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div>
@@ -250,77 +318,21 @@ export default function CreateRidePage() {
 
         <div>
           <Label>Heure de départ</Label>
-          <div className="bg-white border border-line rounded-card p-4">
-            <div className="flex items-center justify-center gap-6">
-
-              {/* Heures */}
-              <div className="flex flex-col items-center gap-2">
-                <button
-                  onClick={() => {
-                    const [h, m] = heure.split(":").map(Number);
-                    setHeure(`${String((h + 1) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-                  }}
-                  className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center"
-                >
-                  <ChevronLeft size={16} className="-rotate-90" />
-                </button>
-                <span className="font-display font-bold text-[40px] leading-none tracking-tight w-16 text-center">
-                  {heure.split(":")[0]}
-                </span>
-                <button
-                  onClick={() => {
-                    const [h, m] = heure.split(":").map(Number);
-                    setHeure(`${String((h - 1 + 24) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-                  }}
-                  className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center"
-                >
-                  <ChevronLeft size={16} className="rotate-90" />
-                </button>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">Heure</span>
-              </div>
-
-              <span className="font-display font-bold text-[40px] leading-none text-ink-muted mb-6">:</span>
-
-              {/* Minutes */}
-              <div className="flex flex-col items-center gap-2">
-                <button
-                  onClick={() => {
-                    const [h, m] = heure.split(":").map(Number);
-                    setHeure(`${String(h).padStart(2, "0")}:${String((m + 15) % 60).padStart(2, "0")}`);
-                  }}
-                  className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center"
-                >
-                  <ChevronLeft size={16} className="-rotate-90" />
-                </button>
-                <span className="font-display font-bold text-[40px] leading-none tracking-tight w-16 text-center">
-                  {heure.split(":")[1]}
-                </span>
-                <button
-                  onClick={() => {
-                    const [h, m] = heure.split(":").map(Number);
-                    setHeure(`${String(h).padStart(2, "0")}:${String((m - 15 + 60) % 60).padStart(2, "0")}`);
-                  }}
-                  className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center"
-                >
-                  <ChevronLeft size={16} className="rotate-90" />
-                </button>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">Minutes</span>
-              </div>
-            </div>
-
-            {/* Raccourcis horaires */}
-            <div className="flex gap-2 justify-center mt-4 flex-wrap">
-              {["07:00", "08:00", "09:00", "09:30", "10:00", "14:00"].map((h) => (
-                <button
-                  key={h}
-                  onClick={() => setHeure(h)}
-                  className={`px-3 h-8 rounded-chip border text-[12px] font-medium transition-colors ${
-                    heure === h ? "bg-ink text-white border-ink" : "bg-bg-secondary border-transparent text-ink"
-                  }`}
-                >
-                  {h}
-                </button>
-              ))}
+          <div className="bg-white border border-line rounded-card px-4 py-2">
+            <div className="flex items-center justify-center gap-2">
+              <ScrollPicker
+                values={Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"))}
+                selected={heure.split(":")[0]}
+                onSelect={(v) => setHeure(`${v}:${heure.split(":")[1]}`)}
+                label="Heure"
+              />
+              <span className="font-display font-bold text-[18px] leading-none text-ink-muted pb-3">:</span>
+              <ScrollPicker
+                values={["00", "15", "30", "45"]}
+                selected={heure.split(":")[1]}
+                onSelect={(v) => setHeure(`${heure.split(":")[0]}:${v}`)}
+                label="Min"
+              />
             </div>
           </div>
         </div>
@@ -375,15 +387,65 @@ export default function CreateRidePage() {
         </div>
 
         <div>
-          <Label>Nombre max de participants</Label>
+          <Label>Allure <span className="text-ink-muted font-normal">(optionnel)</span></Label>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(ALLURE_LABEL) as AllureRide[]).map((a) => (
+              <button
+                key={a}
+                onClick={() => setAllure(allure === a ? null : a)}
+                className={`h-11 px-3 rounded-card border-[1.5px] text-[13px] font-semibold text-left transition-colors ${
+                  allure === a
+                    ? "bg-ink text-bg-primary border-ink"
+                    : "bg-white text-ink border-line"
+                }`}
+              >
+                {ALLURE_LABEL[a]}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 bg-ink text-bg-primary rounded-card p-4 flex gap-3">
+            <span className="text-[20px] leading-none mt-0.5">🛡️</span>
+            <p className="text-[12px] leading-relaxed opacity-80">
+              Sois honnête sur l'allure — c'est pas une question d'ego, c'est une question de sécurité. Un(e) motard(e) qui se retrouve dépassé(e) par le rythme du groupe, c'est un risque pour tout le monde. Le bon groupe, c'est celui où tout le monde rentre chez soi.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <Label>Niveau requis</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { id: "libre",        label: "🤝 Libre",        sub: "Ouvert à tou(te)s" },
+              { id: "debutant",     label: "✨ " + NIVEAU_LABEL.debutant,     sub: "Permis récent OK" },
+              { id: "intermediaire",label: "🔥 " + NIVEAU_LABEL.intermediaire,sub: "Un peu d'expérience" },
+              { id: "confirme",     label: "⚡ " + NIVEAU_LABEL.confirme,     sub: "Riders aguerris" },
+            ] as { id: Niveau | "libre"; label: string; sub: string }[]).map((n) => (
+              <button
+                key={n.id}
+                onClick={() => setNiveauRequis(n.id)}
+                className={`px-3 py-2.5 rounded-card border-[1.5px] text-left transition-colors ${
+                  niveauRequis === n.id
+                    ? "bg-ink text-bg-primary border-ink"
+                    : "bg-white text-ink border-line"
+                }`}
+              >
+                <div className="text-[13px] font-bold leading-tight">{n.label}</div>
+                <div className={`text-[11px] mt-0.5 ${niveauRequis === n.id ? "text-bg-primary/60" : "text-ink-muted"}`}>{n.sub}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label>Nombre max de participant(e)s</Label>
           <div className="flex items-center justify-between bg-white border border-line rounded-card h-14 px-3">
             <button
-              onClick={() => setPlaces((p) => Math.max(1, p - 1))}
+              onClick={() => setPlaces((p) => Math.max(2, p - 1))}
               className="h-10 w-10 rounded-full bg-bg-secondary flex items-center justify-center"
             >
               <Minus size={18} />
             </button>
-            <span className="text-h2">{places} motards</span>
+            <span className="text-h2">{places} motard(e)s</span>
             <button
               onClick={() => setPlaces((p) => Math.min(15, p + 1))}
               className="h-10 w-10 rounded-full bg-bg-secondary flex items-center justify-center"
@@ -391,6 +453,18 @@ export default function CreateRidePage() {
               <Plus size={18} />
             </button>
           </div>
+
+          {places === 15 && (
+            <div className="mt-3 bg-ink text-bg-primary rounded-card p-4 flex gap-3">
+              <span className="text-[22px] leading-none mt-0.5">🤙</span>
+              <div>
+                <p className="font-display font-bold text-[13px] mb-1">C'est le max, et c'est voulu !</p>
+                <p className="text-[12px] leading-relaxed opacity-80">
+                  Au-delà de 15 motard(e)s, un groupe devient difficile à gérer sur la route — distances de freinage, insertions, gestion des carrefours… La sécurité de tout le monde en dépend. Si vous êtes plus nombreux, pensez à vous scinder en deux groupes avec un point de rendez-vous. Ride safe 🛡️
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -428,25 +502,92 @@ export default function CreateRidePage() {
 
         {reseau.length > 0 ? (
           <div className="rounded-card bg-accent-soft p-4 text-caption">
-            ⚠ Tes <span className="font-medium">{reseau.length} amis Ridly</span> seront notifiés
+            ⚠ Tes <span className="font-medium">{reseau.length} motard(e)s Ridly</span> seront notifié(e)s
           </div>
         ) : null}
-      </div>
 
-      <div
-        className="fixed bottom-0 left-0 right-0 mx-auto px-[22px] pb-24 pt-3 sticky-bottom-fade"
-        style={{ maxWidth: 440 }}
-      >
         <Button
           variant="primary"
           size="lg"
           fullWidth
           disabled={!valid}
           onClick={publish}
+          className="mb-8"
         >
           Publier le ride
         </Button>
       </div>
     </main>
+  );
+}
+
+const ITEM_H = 32;
+
+function ScrollPicker({
+  values,
+  selected,
+  onSelect,
+  label,
+}: {
+  values: string[];
+  selected: string;
+  onSelect: (v: string) => void;
+  label: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isScrolling = useRef(false);
+
+  useEffect(() => {
+    if (isScrolling.current) return;
+    const idx = values.indexOf(selected);
+    if (idx < 0 || !ref.current) return;
+    ref.current.scrollTop = idx * ITEM_H;
+  }, [selected, values]);
+
+  const handleScroll = useCallback(() => {
+    if (!ref.current) return;
+    isScrolling.current = true;
+    const idx = Math.round(ref.current.scrollTop / ITEM_H);
+    const clamped = Math.max(0, Math.min(values.length - 1, idx));
+    if (values[clamped] !== selected) onSelect(values[clamped]);
+    setTimeout(() => { isScrolling.current = false; }, 100);
+  }, [values, selected, onSelect]);
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative w-14 overflow-hidden" style={{ height: ITEM_H * 3 }}>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-7 bg-gradient-to-b from-white to-transparent z-10" />
+        <div
+          className="pointer-events-none absolute inset-x-0 z-10 rounded-[8px] bg-ink/[0.06]"
+          style={{ top: ITEM_H, height: ITEM_H }}
+        />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-white to-transparent z-10" />
+        <div
+          ref={ref}
+          onScroll={handleScroll}
+          className="h-full overflow-y-auto no-scrollbar snap-y snap-mandatory"
+        >
+          <div style={{ height: ITEM_H }} />
+          {values.map((v) => (
+            <div
+              key={v}
+              className="snap-center flex items-center justify-center cursor-pointer"
+              style={{ height: ITEM_H }}
+              onClick={() => onSelect(v)}
+            >
+              <span
+                className={`font-display font-bold text-[18px] leading-none tracking-tight transition-all duration-150 ${
+                  v === selected ? "text-ink" : "text-ink-muted opacity-30"
+                }`}
+              >
+                {v}
+              </span>
+            </div>
+          ))}
+          <div style={{ height: ITEM_H }} />
+        </div>
+      </div>
+      <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">{label}</span>
+    </div>
   );
 }

@@ -19,7 +19,7 @@ export default function SettingsPage() {
         <Section title="Disponibilité">
           <Toggle
             label="Visible en ligne"
-            sub="Les motards proches savent que tu es dispo"
+            sub="Les motard(e)s proches savent que tu es dispo"
             on={!!me?.is_online}
             onChange={(v) => me && upsertUser({ ...me, is_online: v })}
           />

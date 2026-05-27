@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { useActions } from "@/lib/data/api";
@@ -19,8 +20,9 @@ export default function SignupPage() {
   const [pw, setPw] = useState("");
   const [show, setShow] = useState(false);
   const [optin, setOptin] = useState(true);
+  const [cguAccepted, setCguAccepted] = useState(false);
 
-  const valid = /\S+@\S+\.\S+/.test(email) && pw.length >= 8;
+  const valid = /\S+@\S+\.\S+/.test(email) && pw.length >= 8 && cguAccepted;
   const strength = passwordStrength(pw);
   const filledBars =
     pw.length === 0 ? 0 : strength === "Faible" ? 1 : strength === "Moyen" ? 2 : 3;
@@ -125,10 +127,47 @@ export default function SignupPage() {
           </div>
         </div>
 
+
+        {/* CGU — obligatoire */}
+        <button
+          type="button"
+          onClick={() => setCguAccepted(!cguAccepted)}
+          className="mt-5 flex items-start gap-2.5 text-left w-full"
+        >
+          <span
+            className={`mt-[1px] h-5 w-5 rounded-md flex items-center justify-center shrink-0 ${
+              cguAccepted ? "bg-ink" : "border-[1.5px] border-line bg-white"
+            }`}
+          >
+            {cguAccepted ? <Check size={11} strokeWidth={3.5} className="text-bg-primary" /> : null}
+          </span>
+          <span className="text-[13px] leading-snug text-ink-soft">
+            J'accepte les{" "}
+            <Link
+              href="/cgu"
+              onClick={(e) => e.stopPropagation()}
+              className="font-semibold text-ink underline"
+            >
+              conditions générales d'utilisation
+            </Link>{" "}
+            et la{" "}
+            <Link
+              href="/cgu"
+              onClick={(e) => e.stopPropagation()}
+              className="font-semibold text-ink underline"
+            >
+              politique de confidentialité
+            </Link>{" "}
+            de Ridly.{" "}
+            <span className="text-accent font-bold">*</span>
+          </span>
+        </button>
+
+        {/* Newsletter — optionnel */}
         <button
           type="button"
           onClick={() => setOptin(!optin)}
-          className="mt-5 flex items-start gap-2.5 text-left"
+          className="mt-3 flex items-start gap-2.5 text-left"
         >
           <span
             className={`mt-[1px] h-5 w-5 rounded-md flex items-center justify-center shrink-0 ${

@@ -27,6 +27,7 @@ import {
 } from "./fixtures";
 
 export interface MockState {
+  _hasHydrated: boolean;
   meId: string | null;
   users: User[];
   rides: Ride[];
@@ -36,13 +37,17 @@ export interface MockState {
   rideReports: RideReport[];
   notifications: Notification[];
   onboardingDraft: Partial<User> & { password?: string };
+  hiddenRideIds: string[];
 
   setMe: (id: string | null) => void;
+  hideRideFromHistory: (rideId: string) => void;
   upsertUser: (u: User) => void;
   upsertRide: (r: Ride) => void;
   joinRide: (rideId: string, userId: string) => void;
   acceptParticipant: (rideId: string, userId: string) => void;
   sendConnection: (toId: string) => void;
+  cancelConnection: (toId: string) => void;
+  refuseConnection: (fromId: string) => void;
   acceptConnection: (id: string) => void;
   sendMessage: (convId: string, content: string) => void;
   startDmWith: (userId: string) => string; // returns conv id
@@ -51,7 +56,8 @@ export interface MockState {
 }
 
 const initial = {
-  meId: null as string | null,
+  _hasHydrated: false,
+  meId: ME_ID as string | null,
   users: mockUsers,
   rides: mockRides,
   connections: mockConnections,
@@ -60,6 +66,7 @@ const initial = {
   rideReports: mockRideReports,
   notifications: mockNotifications,
   onboardingDraft: {},
+  hiddenRideIds: [],
 };
 
 export const useMock = create<MockState>()(
@@ -139,6 +146,32 @@ export const useMock = create<MockState>()(
           };
         }),
 
+      cancelConnection: (toId) =>
+        set((s) => {
+          const meId = s.meId ?? ME_ID;
+          return {
+            connections: s.connections.filter(
+              (c) => !(
+                c.statut === "en_attente" &&
+                ((c.demandeur_id === meId && c.receveur_id === toId) ||
+                 (c.demandeur_id === toId && c.receveur_id === meId))
+              )
+            ),
+          };
+        }),
+
+      refuseConnection: (fromId) =>
+        set((s) => {
+          const meId = s.meId ?? ME_ID;
+          return {
+            connections: s.connections.map((c) =>
+              c.demandeur_id === fromId && c.receveur_id === meId && c.statut === "en_attente"
+                ? { ...c, statut: "refuse" }
+                : c
+            ),
+          };
+        }),
+
       acceptConnection: (id) =>
         set((s) => ({
           connections: s.connections.map((c) =>
@@ -203,8 +236,23 @@ export const useMock = create<MockState>()(
       setOnboardingDraft: (patch) =>
         set((s) => ({ onboardingDraft: { ...s.onboardingDraft, ...patch } })),
 
+      hideRideFromHistory: (rideId) =>
+        set((s) => ({ hiddenRideIds: [...s.hiddenRideIds, rideId] })),
+
       resetMock: () => set(initial),
     }),
-    { name: "ridly-mock-v2" }
+    {
+      name: "ridly-mock-v7",
+      // Don't persist the hydration flag — it must start false every page load
+      partialize: (state) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { _hasHydrated, ...rest } = state;
+        return rest;
+      },
+      onRehydrateStorage: () => () => {
+        // Fires once localStorage hydration is complete (or if storage is empty)
+        useMock.setState({ _hasHydrated: true });
+      },
+    }
   )
 );

@@ -42,8 +42,17 @@ export default function StepInfos() {
   const [ville, setVille] = useState<{ name: string; lat: number; lng: number } | null>(null);
   const [sexe, setSexe] = useState<SexeOption | null>(onboardingDraft.sexe ?? null);
 
+  const age = (() => {
+    if (!day || monthIdx === "" || year.length < 4) return null;
+    const dob = new Date(Number(year), Number(monthIdx), Number(day));
+    const diff = Date.now() - dob.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+  })();
+
+  const under18 = age !== null && age < 18;
+
   const valid =
-    prenom.trim().length > 1 && day && monthIdx && year && ville && sexe;
+    prenom.trim().length > 1 && day && monthIdx !== "" && year.length === 4 && ville && sexe && !under18;
 
   function next() {
     if (!valid) return;
@@ -66,7 +75,7 @@ export default function StepInfos() {
         step={2}
         eyebrow="toi"
         title="Parle-nous de toi"
-        subtitle="Ces infos aident à matcher avec les bons riders."
+        subtitle="Ces infos aident à matcher avec les bons motard(e)s."
       />
 
       <div className="px-6 pt-3 pb-48 flex-1 no-scrollbar overflow-y-auto">
@@ -135,6 +144,11 @@ export default function StepInfos() {
               className="px-3"
             />
           </div>
+          {under18 && (
+            <p className="mt-2 text-[12px] text-accent-dark font-medium">
+              Tu dois avoir 18 ans ou plus pour utiliser Ridly.
+            </p>
+          )}
         </div>
 
         {/* Ville */}
@@ -195,7 +209,7 @@ export default function StepInfos() {
         </div>
       </div>
 
-      <div className="absolute left-0 right-0 bottom-0 px-[22px] pt-5 pb-7 sticky-bottom-fade">
+      <div className="absolute left-0 right-0 bottom-0 px-[22px] pt-5 pb-7 sticky-bottom-fade space-y-2">
         <Button
           variant="primary"
           size="lg"
@@ -205,6 +219,12 @@ export default function StepInfos() {
         >
           Continuer <ArrowRight size={16} strokeWidth={2.2} />
         </Button>
+        <button
+          onClick={() => router.push("/onboarding/moto")}
+          className="w-full text-center text-[13px] font-semibold text-ink-muted underline"
+        >
+          Passer cette étape
+        </button>
       </div>
     </main>
   );

@@ -1,7 +1,8 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, MapPin, MessageCircle, MoreHorizontal, ShieldCheck, UserPlus, X } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, MessageCircle, MoreHorizontal, ShieldCheck, UserPlus, X } from "lucide-react";
+import Link from "next/link";
 import { Avatar, AvatarStack } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
@@ -12,20 +13,38 @@ import {
   useMe,
   useUser,
 } from "@/lib/data/api";
+import { useMock } from "@/lib/mock/store";
 import {
   MOTO_TYPE_LABEL,
   NIVEAU_LABEL,
   SORTIE_LABEL,
 } from "@/lib/types";
 import { ageFromBirthdate } from "@/lib/utils";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
 export default function RiderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const me = useMe();
   const rider = useUser(id);
+  const rides = useMock((s) => s.rides);
   const { reseau, envoyees } = useConnectionsLists();
   const { startDmWith } = useActions();
+
+  // 3 rides closest to today (past or future) for this rider
+  const today = new Date().toISOString().slice(0, 10);
+  const riderRides = rides
+    .filter((r) =>
+      r.createur_id === id ||
+      r.participants?.some((p) => p.user_id === id && p.statut !== "refuse")
+    )
+    .sort((a, b) => {
+      const da = Math.abs(new Date(a.date_ride).getTime() - Date.now());
+      const db = Math.abs(new Date(b.date_ride).getTime() - Date.now());
+      return da - db;
+    })
+    .slice(0, 3);
 
   if (!rider) return <main className="p-6">Profil introuvable.</main>;
 
@@ -108,6 +127,11 @@ export default function RiderDetailPage() {
             </Tag>
           ) : null}
           {rider.is_online ? <Tag tone="trust">● En ligne</Tag> : null}
+          {rider.score_fiabilite >= 85 ? (
+            <Tag tone="success">⭐ Fiabilité {rider.score_fiabilite}%</Tag>
+          ) : rider.score_fiabilite >= 70 ? (
+            <Tag tone="neutral">Fiabilité {rider.score_fiabilite}%</Tag>
+          ) : null}
         </div>
 
         <Card className="mt-3 p-4 grid grid-cols-3 divide-x divide-line">
@@ -117,22 +141,26 @@ export default function RiderDetailPage() {
         </Card>
 
         <h2 className="text-label mt-6 mb-2">Sa moto</h2>
-        <Card className="p-4 flex items-center gap-3">
-          <div className="h-12 w-12 rounded-full bg-bg-secondary flex items-center justify-center">
-            <span className="text-h2">🏍</span>
-          </div>
-          <div className="flex-1">
-            <div className="text-label">
-              {rider.moto_marque} {rider.moto_modele ?? MOTO_TYPE_LABEL[rider.moto_type]}
+        {rider.moto_type ? (
+          <Card className="p-4 flex items-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-bg-secondary flex items-center justify-center">
+              <span className="text-h2">🏍</span>
             </div>
-            <div className="text-caption text-ink-muted">
-              {MOTO_TYPE_LABEL[rider.moto_type]}
-              {rider.moto_cylindree ? ` · ${rider.moto_cylindree} cm³` : ""}
-              {rider.moto_annee ? ` · ${rider.moto_annee}` : ""}
+            <div className="flex-1">
+              <div className="text-label">
+                {rider.moto_marque
+                  ? `${rider.moto_marque}${rider.moto_modele ? ` ${rider.moto_modele}` : ""}`
+                  : MOTO_TYPE_LABEL[rider.moto_type]}
+              </div>
+              <div className="text-caption text-ink-muted">
+                {MOTO_TYPE_LABEL[rider.moto_type]}
+                {rider.moto_cylindree ? ` · ${rider.moto_cylindree} cm³` : ""}
+                {rider.moto_annee ? ` · ${rider.moto_annee}` : ""}
+              </div>
             </div>
-          </div>
-          <Tag tone="accent">{NIVEAU_LABEL[rider.niveau]}</Tag>
-        </Card>
+            {rider.niveau ? <Tag tone="accent">{NIVEAU_LABEL[rider.niveau]}</Tag> : null}
+          </Card>
+        ) : null}
 
         <h2 className="text-label mt-6 mb-2">Types de sorties préférées</h2>
         <div className="flex flex-wrap gap-2">
@@ -147,6 +175,40 @@ export default function RiderDetailPage() {
             <p className="text-body text-ink leading-relaxed">{rider.description}</p>
           </>
         ) : null}
+
+        {riderRides.length > 0 && (
+          <>
+            <h2 className="text-label mt-6 mb-2">Ses balades</h2>
+            <div className="space-y-2">
+              {riderRides.map((r) => {
+                const isPast = r.date_ride < today;
+                const d = new Date(r.date_ride);
+                return (
+                  <Link key={r.id} href={`/rides/${r.id}`}>
+                    <Card className="p-3 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-[10px] bg-bg-secondary flex items-center justify-center text-[18px] shrink-0">
+                        {isPast ? "🏁" : "📍"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-display font-bold text-[13px] leading-tight truncate">
+                          {r.titre ?? "Ride"}
+                        </p>
+                        <p className="text-[11px] text-ink-muted flex items-center gap-1 mt-0.5">
+                          <CalendarDays size={10} />
+                          {format(d, "d MMM yyyy", { locale: fr })}
+                          {r.heure_depart ? ` · ${r.heure_depart}` : ""}
+                        </p>
+                      </div>
+                      <Tag tone={isPast ? "neutral" : "success"}>
+                        {isPast ? "Passée" : "À venir"}
+                      </Tag>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {reseau.length > 0 && me ? (
           <Card className="mt-6 p-4">

@@ -82,7 +82,7 @@ export default function ConversationPage() {
                 Voir la map live
               </p>
               <p className="font-display font-bold text-[13px]">
-                Position de chaque rider en temps réel
+                Position de chaque motard en temps réel
               </p>
             </div>
             <button className="bg-accent text-bg-primary rounded-chip px-3.5 h-9 font-display font-bold text-[12px]">
