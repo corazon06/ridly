@@ -72,7 +72,7 @@ export default function ExplorerPage() {
 
   const filtered = useMemo(() => {
     return all.filter((r) => {
-      if (motos.length > 0 && !motos.includes(r.moto_type)) return false;
+      if (motos.length > 0 && (!r.moto_type || !motos.includes(r.moto_type))) return false;
       if (sorties.length > 0 && !r.types_sorties.some((s) => sorties.includes(s))) return false;
       if (active === "Trail" && r.moto_type !== "trail") return false;
       if (active === "Intermédiaire" && r.niveau !== "intermediaire") return false;
