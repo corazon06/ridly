@@ -1,5 +1,5 @@
 "use client";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState, useRef } from "react";
 import {
   ArrowLeft,
@@ -42,11 +42,16 @@ import { fr } from "date-fns/locale";
 export default function RideDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromTab = searchParams.get("tab");
+  const backUrl = searchParams.get("from") === "mes-rides"
+    ? `/rides${fromTab ? `?tab=${fromTab}` : ""}`
+    : "/explorer?mode=rides";
   const me = useMe();
   const ride = useRide(id);
   const createur = useUser(ride?.createur_id);
   const users = useMock((s) => s.users);
-  const { joinRide } = useActions();
+  const { joinRide, startDmWith, sendMessage } = useActions();
   const { reseau } = useConnectionsLists();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteSearch, setInviteSearch] = useState("");
@@ -71,15 +76,25 @@ export default function RideDetailPage() {
       {/* Header */}
       <div className="safe-top px-[22px] pt-1 pb-2 flex items-center justify-between">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push(backUrl)}
           className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center text-ink"
         >
           <ArrowLeft size={16} strokeWidth={2} />
         </button>
         <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted font-bold">
-          Détail du ride
+          Détail de la balade
         </div>
-        <button className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center text-ink">
+        <button
+          onClick={() => {
+            const url = window.location.href;
+            if (navigator.share) {
+              navigator.share({ title: ride.titre ?? "Ride Ridly", url });
+            } else {
+              navigator.clipboard.writeText(url);
+            }
+          }}
+          className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center text-ink"
+        >
           <Share2 size={16} strokeWidth={1.8} />
         </button>
       </div>
@@ -90,7 +105,7 @@ export default function RideDetailPage() {
         <div>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {ride.type_sortie.map((s) => (
-              <Tag key={s} tone="ink">{SORTIE_LABEL[s]}</Tag>
+              <Tag key={s} tone={s === "longue_distance" ? "roadtrip" : "ink"}>{SORTIE_LABEL[s]}</Tag>
             ))}
           </div>
           <h1 className="text-h1 leading-tight">{ride.titre}</h1>
@@ -140,7 +155,7 @@ export default function RideDetailPage() {
                 <p className="font-mono text-[9px] uppercase tracking-wider text-ink-muted mb-0.5">Arrivée</p>
                 <p className="text-[13px] font-semibold text-ink flex items-center gap-1.5">
                   <Flag size={13} className="text-ink-muted shrink-0" />
-                  {(ride as any).point_arrivee || "Boucle"}
+                  {ride.point_arrivee || "Boucle"}
                 </p>
               </div>
             </div>
@@ -179,23 +194,27 @@ export default function RideDetailPage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-label">Participant(e)s · {accepted.length}</h2>
           </div>
-          <div className="flex items-center gap-3">
-            <AvatarStack
-              users={accepted
-                .map((p) => users.find((u) => u.id === p.user_id))
-                .filter(Boolean)
-                .map((u) => ({ name: u!.prenom, src: u!.photo_url }))}
-              max={5}
-            />
-            <span className="text-caption text-ink-muted">
-              {accepted
-                .slice(0, 3)
-                .map((p) => users.find((u) => u.id === p.user_id)?.prenom)
-                .filter(Boolean)
-                .join(", ")}
-              {accepted.length > 3 ? ` + ${accepted.length - 3} autres` : ""}
-            </span>
-          </div>
+          {accepted.length === 0 ? (
+            <p className="text-caption text-ink-muted italic">Aucun participant pour l'instant.</p>
+          ) : (
+            <div className="flex items-center gap-3">
+              <AvatarStack
+                users={accepted
+                  .map((p) => users.find((u) => u.id === p.user_id))
+                  .filter(Boolean)
+                  .map((u) => ({ name: u!.prenom, src: u!.photo_url }))}
+                max={5}
+              />
+              <span className="text-caption text-ink-muted">
+                {accepted
+                  .slice(0, 3)
+                  .map((p) => users.find((u) => u.id === p.user_id)?.prenom)
+                  .filter(Boolean)
+                  .join(", ")}
+                {accepted.length > 3 ? ` + ${accepted.length - 3} autres` : ""}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Créateur */}
@@ -204,14 +223,14 @@ export default function RideDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="text-label flex items-center gap-1.5">
               {createur.prenom}
-              {createur.permis_verifie ? <Tag tone="success" className="text-[10px]">Permis ✓</Tag> : null}
+              {createur.permis_verifie ? <Tag tone="success" className="text-[10px]">Profil vérifié</Tag> : null}
             </div>
             <div className="text-caption text-ink-muted">
               Organisateur · {createur.rides_organises} rides · fiabilité {createur.score_fiabilite}%
             </div>
           </div>
           <button
-            onClick={() => router.push(`/explorer/${createur.id}`)}
+            onClick={() => router.push(`/explorer/${createur.id}?from=ride`)}
             className="text-[12px] font-semibold text-accent underline shrink-0"
           >
             Voir profil
@@ -250,23 +269,29 @@ export default function RideDetailPage() {
                 variant="primary"
                 size="lg"
                 fullWidth
-                disabled={placesRestantes === 0}
+                disabled={placesRestantes === 0 || ride.statut !== "ouvert"}
                 onClick={() => {
-                  if (!me) return;
+                  if (!me || ride.statut !== "ouvert") return;
                   joinRide(ride.id, me.id);
                 }}
               >
-                {placesRestantes === 0 ? "Complet" : "Demander à rejoindre"}
+                {placesRestantes === 0 ? "Complet" : ride.statut !== "ouvert" ? "Non disponible" : "Demander à rejoindre"}
               </Button>
             )}
-            <button className="w-full mt-2 h-12 rounded-card bg-ink text-bg-primary font-display font-bold text-[14px] flex items-center justify-center gap-2">
+            <button
+              onClick={() => {
+                const convId = startDmWith(createur.id);
+                router.push(`/messages/${convId}`);
+              }}
+              className="w-full mt-2 h-12 rounded-card bg-white border border-line text-ink font-display font-bold text-[14px] flex items-center justify-center gap-2"
+            >
               <MessageCircle size={15} strokeWidth={2} /> Contacter {createur.prenom}
             </button>
           </>
         )}
         {isCreateur && (
-          <Button variant="primary" size="lg" fullWidth>
-            Gérer le ride
+          <Button variant="primary" size="lg" fullWidth onClick={() => setInviteOpen(true)}>
+            Gérer la balade · Inviter
           </Button>
         )}
       </div>
@@ -339,6 +364,11 @@ export default function RideDetailPage() {
                     inviteTimers.current[u.id] = setTimeout(() => {
                       setPendingInvites((prev) => prev.filter((x) => x !== u.id));
                       setConfirmedInvites((prev) => [...prev, u.id]);
+                      // Persister l'invitation via un message DM
+                      const convId = startDmWith(u.id);
+                      const titre = ride?.titre ?? ride?.point_depart ?? "une balade";
+                      const dateRide = ride?.date_ride ?? "";
+                      sendMessage(convId, `Salut ${u.prenom} ! Je t'invite à rejoindre "${titre}" le ${dateRide}. Intéressé(e) ? 🏍`);
                     }, 10000);
                   }
 
@@ -396,12 +426,6 @@ export default function RideDetailPage() {
           </div>
         </div>
       )}
-      <style>{`
-        @keyframes drain-rtl {
-          from { transform: scaleX(1); }
-          to   { transform: scaleX(0); }
-        }
-      `}</style>
     </main>
   );
 }

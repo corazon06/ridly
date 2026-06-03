@@ -27,7 +27,7 @@ const SORTIES: SortieType[] = ["balade", "road_trip", "cafe", "cols", "matinale"
 const SEXES: { value: SexeOption; label: string }[] = [
   { value: "homme", label: "Homme" },
   { value: "femme", label: "Femme" },
-  { value: "prefere_ne_pas_dire", label: "Non précisé" },
+  { value: "prefere_ne_pas_dire", label: "Non genré" },
 ];
 
 export default function ProfileEditPage() {
@@ -70,6 +70,7 @@ export default function ProfileEditPage() {
   }
 
   function handleSave() {
+    if (!prenom.trim()) return;
     upsertUser({
       ...me!,
       prenom,

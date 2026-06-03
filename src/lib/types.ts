@@ -95,6 +95,7 @@ export interface Ride {
 
   titre: string | null;
   point_depart: string;
+  point_arrivee?: string | null;
   lat_depart: number;
   lng_depart: number;
   date_ride: string;
@@ -102,14 +103,14 @@ export interface Ride {
   duree_estimee: DureeRide;
   type_sortie: SortieType[];
   nb_places_max: number;
-  arrets: string[];
+  arrets?: string[];
   allure: AllureRide | null;
   niveau_requis: Niveau | null;
   mot_libre: string | null;
   validation_manuelle: boolean;
   statut: RideStatut;
 
-  participants?: RideParticipant[];
+  participants: RideParticipant[];
   created_at: string;
 }
 

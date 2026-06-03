@@ -23,8 +23,9 @@ import { type SortieType } from "@/lib/types";
 const GOUTS = [
   "Chill 😌", "Sportif 🏁", "Découverte 🗺️", "Social 🤝",
   "Solitaire 🎧", "Nature 🌿", "Gastronomie 🍽️", "Photo / Vidéo 📸",
-  "Technique 🔧", "Nocturne 🌙",
+  "Technique 🔧", "Nocturne 🌙", "Réseaux 📱",
 ];
+
 
 const OPTIONS: {
   id: SortieType;
@@ -77,7 +78,7 @@ export default function StepSorties() {
   return (
     <main className="min-h-[100dvh] flex flex-col safe-bottom relative">
       <StepHeader
-        step={4}
+        step={5}
         eyebrow="tes goûts"
         title="Quel type de rides tu aimes ?"
         subtitle="Sélectionne autant que tu veux."
@@ -101,13 +102,13 @@ export default function StepSorties() {
                 onClick={() => toggle(o.id)}
                 className={`relative text-left rounded-card border-[1.5px] p-3.5 min-h-[110px] flex flex-col gap-2.5 ${
                   active
-                    ? "bg-ink text-bg-primary border-ink"
-                    : "bg-white text-ink border-line"
+                    ? o.id === "longue_distance" ? "bg-[#1A2E4A] text-[#A8C4E0] border-[#1A2E4A]" : "bg-ink text-bg-primary border-ink"
+                    : o.id === "longue_distance" ? "bg-[#EEF3F8] text-[#1A2E4A] border-[#BFCFDF]" : "bg-white text-ink border-line"
                 }`}
               >
                 <span
                   className={`h-[38px] w-[38px] rounded-[11px] flex items-center justify-center ${
-                    active ? "bg-white/10 text-bg-primary" : "bg-bg-secondary text-ink"
+                    active ? "bg-white/10" : o.id === "longue_distance" ? "bg-[#1A2E4A]/10 text-[#1A2E4A]" : "bg-bg-secondary text-ink"
                   }`}
                 >
                   {o.icon}
@@ -175,7 +176,7 @@ export default function StepSorties() {
               <button
                 type="button"
                 onClick={() => setAutreOpen(true)}
-                className="px-3.5 py-2 rounded-chip text-[13px] font-display font-bold border-[1.5px] border-dashed border-line text-ink-muted flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-chip text-[13px] font-display font-bold bg-accent text-white flex items-center gap-1.5"
               >
                 <Plus size={13} strokeWidth={2.5} /> Autre
               </button>

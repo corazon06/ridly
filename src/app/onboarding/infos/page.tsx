@@ -51,8 +51,15 @@ export default function StepInfos() {
 
   const under18 = age !== null && age < 18;
 
+  const dayNum = Number(day);
+  const isDayValid = dayNum >= 1 && dayNum <= 31;
+  const isDateReal = (() => {
+    if (!day || monthIdx === "" || year.length < 4) return false;
+    const d = new Date(Number(year), Number(monthIdx), Number(day));
+    return d.getMonth() === Number(monthIdx) && d.getDate() === Number(day);
+  })();
   const valid =
-    prenom.trim().length > 1 && day && monthIdx !== "" && year.length === 4 && ville && sexe && !under18;
+    prenom.trim().length > 1 && isDayValid && isDateReal && monthIdx !== "" && year.length === 4 && ville && sexe && !under18;
 
   function next() {
     if (!valid) return;
@@ -103,20 +110,24 @@ export default function StepInfos() {
             Date de naissance{" "}
             <span className="font-medium text-[11px] text-ink-muted">(18+ requis)</span>
           </Label>
-          <div className="grid grid-cols-[1fr_1fr_1.2fr] gap-1.5">
-            <Input
-              placeholder="14"
-              inputMode="numeric"
-              maxLength={2}
-              value={day}
-              onChange={(e) => setDay(e.target.value.replace(/\D/g, ""))}
-              className="px-3"
-            />
-            <div className="relative">
+          <div className="flex gap-1.5 w-full">
+            {/* Jour — petit */}
+            <div style={{ width: "18%" }}>
+              <Input
+                placeholder="JJ"
+                inputMode="numeric"
+                maxLength={2}
+                value={day}
+                onChange={(e) => setDay(e.target.value.replace(/\D/g, ""))}
+                className="px-2 text-center"
+              />
+            </div>
+            {/* Mois — large */}
+            <div className="relative" style={{ width: "47%" }}>
               <select
                 value={monthIdx}
                 onChange={(e) => setMonthIdx(e.target.value)}
-                className={`appearance-none w-full h-[46px] pl-3 pr-8 rounded-card-sm border-[1.5px] bg-white text-[14px] font-medium outline-none cursor-pointer transition-shadow ${
+                className={`appearance-none w-full h-[46px] pl-3 pr-7 rounded-card-sm border-[1.5px] bg-white text-[14px] font-medium outline-none cursor-pointer transition-shadow ${
                   monthIdx
                     ? "border-ink text-ink shadow-[0_0_0_3px_rgba(42,38,36,0.06)]"
                     : "border-line text-ink-muted focus:border-ink focus:shadow-[0_0_0_3px_rgba(42,38,36,0.06)]"
@@ -124,25 +135,26 @@ export default function StepInfos() {
               >
                 <option value="">Mois</option>
                 {MONTHS.map((m, i) => (
-                  <option key={i} value={i}>
-                    {m}
-                  </option>
+                  <option key={i} value={i}>{m}</option>
                 ))}
               </select>
               <ChevronDown
                 size={14}
                 strokeWidth={2}
-                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted"
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-ink-muted"
               />
             </div>
-            <Input
-              placeholder="1995"
-              inputMode="numeric"
-              maxLength={4}
-              value={year}
-              onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
-              className="px-3"
-            />
+            {/* Année — moyen */}
+            <div style={{ width: "35%" }}>
+              <Input
+                placeholder="AAAA"
+                inputMode="numeric"
+                maxLength={4}
+                value={year}
+                onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
+                className="px-2 text-center"
+              />
+            </div>
           </div>
           {under18 && (
             <p className="mt-2 text-[12px] text-accent-dark font-medium">
@@ -156,14 +168,13 @@ export default function StepInfos() {
           <Label>Ville</Label>
           <Input
             value={ville?.name ?? ""}
-            placeholder="Lyon"
-            readOnly
+            onChange={(e) => {
+              const val = e.target.value;
+              const found = VILLES.find((v) => v.name.toLowerCase() === val.toLowerCase());
+              setVille(found ?? { name: val, lat: 46.603354, lng: 1.888334 });
+            }}
+            placeholder="Ta ville…"
             icon={<MapPin size={16} strokeWidth={1.9} className="text-accent" />}
-            trailing={
-              <span className="font-mono text-[9.5px] uppercase tracking-wider font-bold text-accent bg-accent-soft px-2 py-1 rounded-md">
-                GPS
-              </span>
-            }
           />
           <div className="mt-1.5 bg-white border border-line rounded-[12px] overflow-hidden">
             {VILLES.map((v, i) => (
@@ -203,7 +214,7 @@ export default function StepInfos() {
               active={sexe === "prefere_ne_pas_dire"}
               onClick={() => setSexe("prefere_ne_pas_dire")}
             >
-              Préfère ne pas dire
+              Non genré
             </Chip>
           </div>
         </div>
@@ -220,7 +231,12 @@ export default function StepInfos() {
           Continuer <ArrowRight size={16} strokeWidth={2.2} />
         </Button>
         <button
-          onClick={() => router.push("/onboarding/moto")}
+          onClick={() => {
+            if (prenom.trim()) setOnboardingDraft({ prenom });
+            if (ville) setOnboardingDraft({ ville: ville.name, lat: ville.lat, lng: ville.lng });
+            if (sexe) setOnboardingDraft({ sexe });
+            router.push("/onboarding/moto");
+          }}
           className="w-full text-center text-[13px] font-semibold text-ink-muted underline"
         >
           Passer cette étape

@@ -30,6 +30,9 @@ const NIVEAU_OPTIONS: { id: Niveau; label: string; icon: React.ReactNode }[] = [
 export default function StepMoto() {
   const router = useRouter();
   const { setOnboardingDraft, onboardingDraft } = useActions();
+  // `moto` = types sélectionnés (chips visuels)
+  // `motos` = entrées détaillées (marque / modèle)
+  // À la sauvegarde : moto[0] → moto_type, motos[0] → marque/modèle
   const [moto, setMoto] = useState<MotoType[]>(onboardingDraft.moto_type ? [onboardingDraft.moto_type] : []);
 
   function toggleMotoType(m: MotoType) {
@@ -59,22 +62,24 @@ export default function StepMoto() {
       moto_marque: first?.marque || null,
       moto_modele: first?.modele || null,
     });
-    router.push("/onboarding/sorties");
+    // Photo moto uniquement si un type ET une marque/modèle sont renseignés
+    const hasMotoDetail = moto.length > 0 && motos.length > 0 && (motos[0].marque || motos[0].modele);
+    router.push(hasMotoDetail ? "/onboarding/photo-moto" : "/onboarding/sorties");
   }
 
   return (
     <main className="min-h-[100dvh] flex flex-col safe-bottom relative">
       <StepHeader
         step={3}
-        eyebrow="ta moto"
-        title="Parle-nous de ta moto"
+        eyebrow="ta / tes moto(s)"
+        title="Parle-nous de ta/tes moto(s)"
         subtitle="On utilise ces infos pour te connecter aux bons motard(e)s, pas pour te juger."
       />
 
       <div className="px-6 pt-3 pb-48 flex-1 no-scrollbar overflow-y-auto">
         <div className="flex items-center justify-between mb-3 mt-1">
-          <span className="text-label">Type de moto</span>
-          <span className="text-[11.5px] text-ink-muted">choisis-en une</span>
+          <span className="text-label">Type(s) de moto</span>
+          <span className="text-[11.5px] text-ink-muted">une ou plusieurs</span>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           {MOTO_OPTIONS.map((m) => {
@@ -120,7 +125,6 @@ export default function StepMoto() {
 
         <div className="flex items-center justify-between mt-7 mb-3">
           <span className="text-label">Ton niveau</span>
-          <span className="text-[11.5px] text-ink-muted">honnêteté = sécurité</span>
         </div>
         <div className="grid grid-cols-3 gap-2">
           {NIVEAU_OPTIONS.map((n) => {
@@ -140,6 +144,12 @@ export default function StepMoto() {
               </button>
             );
           })}
+        </div>
+        <div className="mt-3 bg-ink text-bg-primary rounded-card p-4 flex gap-3">
+          <span className="text-[18px] leading-none mt-0.5">🤍</span>
+          <p className="text-[12px] leading-relaxed opacity-80 italic">
+            Sois honnête sur ton niveau — le bon groupe, c'est celui où tout le monde rentre chez soi.
+          </p>
         </div>
 
         {/* Mes motos */}
@@ -179,7 +189,7 @@ export default function StepMoto() {
             <button
               type="button"
               onClick={addMoto}
-              className="mt-2.5 w-full h-10 rounded-card bg-ink flex items-center justify-center gap-2 text-[13px] font-display font-bold text-bg-primary"
+              className="mt-2.5 w-full h-10 rounded-card bg-accent flex items-center justify-center gap-2 text-[13px] font-display font-bold text-white"
             >
               <Plus size={15} strokeWidth={2.2} /> Ajouter une moto
             </button>
@@ -198,7 +208,11 @@ export default function StepMoto() {
           Continuer <ArrowRight size={16} strokeWidth={2.2} />
         </Button>
         <button
-          onClick={() => router.push("/onboarding/sorties")}
+          onClick={() => {
+            if (moto.length > 0) setOnboardingDraft({ moto_type: moto[0] });
+            if (niveau) setOnboardingDraft({ niveau });
+            router.push("/onboarding/sorties");
+          }}
           className="w-full text-center text-[13px] font-semibold text-ink-muted underline"
         >
           Passer cette étape

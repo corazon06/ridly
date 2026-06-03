@@ -1,7 +1,7 @@
 "use client";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
-import { ArrowLeft, CalendarDays, MapPin, MessageCircle, MoreHorizontal, ShieldCheck, UserPlus, X } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useState, Suspense } from "react";
+import { ArrowLeft, CalendarDays, MapPin, MessageCircle, ShieldCheck, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarStack } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -24,11 +24,18 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 export default function RiderDetailPage() {
+  return <Suspense><RiderDetailPageInner /></Suspense>;
+}
+
+function RiderDetailPageInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const backUrl = searchParams.get("from") === "ride" ? "javascript:history.back()" : "/explorer?mode=riders";
   const me = useMe();
   const rider = useUser(id);
   const rides = useMock((s) => s.rides);
+  const allConnections = useMock((s) => s.connections);
   const { reseau, envoyees } = useConnectionsLists();
   const { startDmWith } = useActions();
 
@@ -36,8 +43,9 @@ export default function RiderDetailPage() {
   const today = new Date().toISOString().slice(0, 10);
   const riderRides = rides
     .filter((r) =>
-      r.createur_id === id ||
-      r.participants?.some((p) => p.user_id === id && p.statut !== "refuse")
+      r.statut !== "annule" &&
+      (r.createur_id === id ||
+        r.participants?.some((p) => p.user_id === id && (p.statut === "accepte" || p.statut === "present")))
     )
     .sort((a, b) => {
       const da = Math.abs(new Date(a.date_ride).getTime() - Date.now());
@@ -47,6 +55,25 @@ export default function RiderDetailPage() {
     .slice(0, 3);
 
   if (!rider) return <main className="p-6">Profil introuvable.</main>;
+
+  // Amis en commun : intersection entre réseau de me et réseau du rider
+  const riderFriendIds = new Set(
+    allConnections
+      .filter((c) => c.statut === "accepte" && (c.demandeur_id === rider.id || c.receveur_id === rider.id))
+      .map((c) => (c.demandeur_id === rider.id ? c.receveur_id : c.demandeur_id))
+  );
+  const communs = reseau.filter((u) => riderFriendIds.has(u.id));
+  const communsBlock = communs.length > 0 && me ? (
+    <Card className="mt-6 p-4">
+      <p className="text-eyebrow text-ink-muted uppercase mb-2">amis Ridly en commun</p>
+      <div className="flex items-center gap-3">
+        <AvatarStack users={communs.slice(0, 3).map((r) => ({ name: r.prenom, src: r.photo_url }))} />
+        <p className="text-caption text-ink-muted">
+          {communs.slice(0, 3).map((r) => r.prenom).join(", ")}
+        </p>
+      </div>
+    </Card>
+  ) : null;
 
   const [photoOpen, setPhotoOpen] = useState(false);
   const isFriend = reseau.some((r) => r.id === rider.id);
@@ -69,14 +96,12 @@ export default function RiderDetailPage() {
     <main className="min-h-[100dvh] pb-32">
       <div className="px-6 pt-4 safe-top flex items-center justify-between">
         <button
-          onClick={() => router.back()}
+          onClick={() => backUrl === "javascript:history.back()" ? router.back() : router.push(backUrl)}
           className="h-10 w-10 rounded-full bg-bg-secondary flex items-center justify-center"
         >
           <ArrowLeft size={20} />
         </button>
-        <button className="h-10 w-10 rounded-full bg-bg-secondary flex items-center justify-center">
-          <MoreHorizontal size={20} />
-        </button>
+        <div className="h-10 w-10" />
       </div>
 
       {/* Photo lightbox */}
@@ -118,26 +143,26 @@ export default function RiderDetailPage() {
           {rider.prenom}, {age}
         </h1>
         <p className="text-body text-ink-muted flex items-center gap-1 mt-1">
-          <MapPin size={14} /> {rider.ville}, Auvergne-Rhône-Alpes
+          <MapPin size={14} /> {rider.ville}
         </p>
         <div className="flex flex-wrap gap-2 mt-3">
           {rider.permis_verifie ? (
             <Tag tone="success">
-              <ShieldCheck size={12} /> Permis vérifié
+              <ShieldCheck size={12} /> Profil vérifié
             </Tag>
           ) : null}
           {rider.is_online ? <Tag tone="trust">● En ligne</Tag> : null}
           {rider.score_fiabilite >= 85 ? (
-            <Tag tone="success">⭐ Fiabilité {rider.score_fiabilite}%</Tag>
+            <Tag tone="success" title="Basé sur les présences aux balades et les avis reçus">⭐ Fiabilité {rider.score_fiabilite}%</Tag>
           ) : rider.score_fiabilite >= 70 ? (
-            <Tag tone="neutral">Fiabilité {rider.score_fiabilite}%</Tag>
+            <Tag tone="neutral" title="Basé sur les présences aux balades et les avis reçus">Fiabilité {rider.score_fiabilite}%</Tag>
           ) : null}
         </div>
 
         <Card className="mt-3 p-4 grid grid-cols-3 divide-x divide-line">
           <Stat value={rider.rides_organises} label="organisés" />
           <Stat value={rider.rides_rejoints} label="rejoints" />
-          <Stat value={`${rider.km_parcourus} km`} label="parcourus" />
+          <Stat value={`${rider.km_parcourus.toLocaleString("fr-FR")} km`} label="parcourus" />
         </Card>
 
         <h2 className="text-label mt-6 mb-2">Sa moto</h2>
@@ -165,7 +190,7 @@ export default function RiderDetailPage() {
         <h2 className="text-label mt-6 mb-2">Types de sorties préférées</h2>
         <div className="flex flex-wrap gap-2">
           {rider.types_sorties.map((s) => (
-            <Tag key={s} tone="neutral">{SORTIE_LABEL[s]}</Tag>
+            <Tag key={s} tone={s === "longue_distance" ? "roadtrip" : "neutral"}>{SORTIE_LABEL[s]}</Tag>
           ))}
         </div>
 
@@ -210,20 +235,7 @@ export default function RiderDetailPage() {
           </>
         )}
 
-        {reseau.length > 0 && me ? (
-          <Card className="mt-6 p-4">
-            <p className="text-eyebrow text-ink-muted uppercase mb-2">amis Ridly en commun</p>
-            <div className="flex items-center gap-3">
-              <AvatarStack
-                users={reseau.slice(0, 3).map((r) => ({ name: r.prenom, src: r.photo_url }))}
-              />
-              <p className="text-caption text-ink-muted">
-                {reseau.slice(0, 3).map((r) => r.prenom).join(", ")} ont déjà
-                roulé ensemble
-              </p>
-            </div>
-          </Card>
-        ) : null}
+        {communsBlock}
       </div>
 
       <div

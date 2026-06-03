@@ -21,7 +21,7 @@ export default function CguPage() {
 
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent font-bold mb-1">Dernière mise à jour</p>
-          <p className="text-ink-muted">XXXX XXXX XXXX</p>
+          <p className="text-ink-muted">28 mai 2026</p>
         </div>
 
         <Section title="1. Présentation de l'application">
@@ -62,8 +62,15 @@ export default function CguPage() {
         </Section>
 
         <Section title="7. Données personnelles">
-          <p>XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX.</p>
-          <p className="mt-2">Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données. XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX.</p>
+          <p>Ridly collecte uniquement les données nécessaires au fonctionnement de l'application : adresse e-mail, prénom, date de naissance, ville, photo de profil, informations sur la moto et préférences de sorties.</p>
+          <p className="mt-2">Certaines données sont <b>visibles par les autres utilisateurs</b> (prénom, photo, ville, moto, niveau, types de sorties). D'autres sont <b>strictement privées</b> et ne sont jamais affichées sur votre profil public :</p>
+          <ul className="mt-2 space-y-1.5 list-disc list-inside">
+            <li>Adresse e-mail</li>
+            <li>Date de naissance (seul l'âge calculé est affiché)</li>
+            <li>Genre / identité de genre</li>
+            <li>Mot de passe (chiffré, jamais stocké en clair)</li>
+          </ul>
+          <p className="mt-3">Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données. Pour exercer ces droits, contactez-nous à l'adresse indiquée en section 11.</p>
         </Section>
 
         <Section title="8. Propriété intellectuelle">

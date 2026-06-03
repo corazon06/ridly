@@ -4,7 +4,7 @@ import { ChevronRight, MapPin, Star } from "lucide-react";
 import { format, isToday, isTomorrow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Avatar } from "@/components/ui/Avatar";
-import { type Ride, type User } from "@/lib/types";
+import { type Ride, type User, SORTIE_LABEL } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function formatWhen(ride: Ride): string {
@@ -14,16 +14,16 @@ function formatWhen(ride: Ride): string {
   return `${format(d, "EEE d MMM", { locale: fr })} · ${ride.heure_depart}`;
 }
 
-function approximateKm(ride: Ride): number {
-  // Mock-only heuristic so the cards display a realistic distance.
-  // Map ride id → predefined km if we know it, else fall back to 80.
+function approximateKm(ride: Ride): string {
+  // Mock-only heuristic — distances are estimations until GPS routing is wired.
   const map: Record<string, number> = {
     r_col_rousset: 120,
     r_beaujolais: 75,
     r_tour_lyonnais: 95,
     r_chartreuse: 85,
   };
-  return map[ride.id] ?? 80;
+  const km = map[ride.id] ?? 80;
+  return `~${km}`;
 }
 
 export function RideCard({
@@ -31,11 +31,13 @@ export function RideCard({
   users,
   highlight,
   badge,
+  fromParam,
 }: {
   ride: Ride;
   users: User[];
   highlight?: boolean;
   badge?: { label: string; tone: "accent" | "success" | "neutral" };
+  fromParam?: string;
 }) {
   const accepted = (ride.participants ?? []).filter(
     (p) => p.statut === "accepte" || p.statut === "present"
@@ -47,7 +49,7 @@ export function RideCard({
   const overflow = Math.max(accepted.length - 3, 0);
 
   return (
-    <Link href={`/rides/${ride.id}`} className="block">
+    <Link href={`/rides/${ride.id}${fromParam ? `?${fromParam}` : ""}`} className="block">
       <div
         className={cn(
           "relative bg-white border rounded-card-xl px-4 py-3.5",
@@ -71,10 +73,26 @@ export function RideCard({
             <h3 className="font-display font-bold text-[17px] leading-tight tracking-[-0.01em]">
               {ride.titre ?? "Ride"}
             </h3>
-            <p className="text-[12px] text-ink-muted mt-0.5 flex items-center gap-1">
-              <MapPin size={11} strokeWidth={1.9} />
-              {ride.point_depart} · {approximateKm(ride)} km
-            </p>
+            <div className="mt-0.5">
+              {/* Ligne 1 : départ/destination + km + arrêts si boucle */}
+              <p className="text-[12px] text-ink-muted flex items-center gap-1 flex-wrap">
+                <MapPin size={11} strokeWidth={1.9} className="shrink-0" />
+                <span>
+                  {ride.point_arrivee
+                    ? <>{ride.point_depart} · {ride.point_arrivee} · {approximateKm(ride)} km</>
+                    : <>Boucle · {approximateKm(ride)} km{(ride.arrets ?? []).filter(Boolean).length > 0 ? <> · 📍 {(ride.arrets ?? []).filter(Boolean).length} arrêt{(ride.arrets ?? []).filter(Boolean).length > 1 ? "s" : ""}</> : null}</>
+                  }
+                </span>
+              </p>
+              {/* Ligne 2 : chip type de sortie */}
+              <div className="mt-1">
+                {ride.type_sortie.slice(0, 1).map(s => (
+                  <span key={s} className="inline-flex items-center px-2 py-0.5 rounded-chip text-[10px] font-display font-bold bg-ink text-white">
+                    {SORTIE_LABEL[s]}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
           {badge ? <RideBadge tone={badge.tone}>{badge.label}</RideBadge> : null}
         </div>
@@ -85,7 +103,7 @@ export function RideCard({
               <Avatar key={u.id} src={u.photo_url} name={u.prenom} size="sm" ring />
             ))}
             {overflow > 0 ? (
-              <div className="h-9 w-9 rounded-full bg-bg-tertiary text-ink ring-2 ring-white flex items-center justify-center font-display font-bold text-[10px]">
+              <div className="h-9 w-9 rounded-full bg-bg-secondary text-ink ring-2 ring-white flex items-center justify-center font-display font-bold text-[10px]">
                 +{overflow}
               </div>
             ) : null}

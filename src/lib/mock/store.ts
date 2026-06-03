@@ -2,6 +2,11 @@
 /**
  * Mock client-side store. Persists to localStorage so the demo
  * survives page reloads. Used when IS_MOCK is true.
+ *
+ * ⚠️  SÉCURITÉ — MODE MOCK UNIQUEMENT
+ * Ce store persiste toutes les données en clair dans localStorage.
+ * Ne jamais utiliser avec de vraies données utilisateur.
+ * En production, remplacer par Supabase + sessions serveur chiffrées.
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -36,7 +41,7 @@ export interface MockState {
   messages: Record<string, Message[]>;
   rideReports: RideReport[];
   notifications: Notification[];
-  onboardingDraft: Partial<User> & { password?: string };
+  onboardingDraft: Partial<User> & { password?: string; moto_photo_url?: string | null };
   hiddenRideIds: string[];
 
   setMe: (id: string | null) => void;
@@ -45,13 +50,14 @@ export interface MockState {
   upsertRide: (r: Ride) => void;
   joinRide: (rideId: string, userId: string) => void;
   acceptParticipant: (rideId: string, userId: string) => void;
+  refuseParticipant: (rideId: string, userId: string) => void;
   sendConnection: (toId: string) => void;
   cancelConnection: (toId: string) => void;
   refuseConnection: (fromId: string) => void;
   acceptConnection: (id: string) => void;
   sendMessage: (convId: string, content: string) => void;
   startDmWith: (userId: string) => string; // returns conv id
-  setOnboardingDraft: (patch: Partial<User> & { password?: string }) => void;
+  setOnboardingDraft: (patch: Partial<User> & { password?: string; moto_photo_url?: string | null }) => void;
   resetMock: () => void;
 }
 
@@ -121,6 +127,20 @@ export const useMock = create<MockState>()(
           ),
         })),
 
+      refuseParticipant: (rideId, userId) =>
+        set((s) => ({
+          rides: s.rides.map((r) =>
+            r.id === rideId
+              ? {
+                  ...r,
+                  participants: (r.participants ?? []).map((p) =>
+                    p.user_id === userId ? { ...p, statut: "refuse" } : p
+                  ),
+                }
+              : r
+          ),
+        })),
+
       sendConnection: (toId) =>
         set((s) => {
           const meId = s.meId ?? ME_ID;
@@ -149,12 +169,13 @@ export const useMock = create<MockState>()(
       cancelConnection: (toId) =>
         set((s) => {
           const meId = s.meId ?? ME_ID;
+          // Annule uniquement une demande ENVOYÉE par moi (pas reçue)
           return {
             connections: s.connections.filter(
               (c) => !(
                 c.statut === "en_attente" &&
-                ((c.demandeur_id === meId && c.receveur_id === toId) ||
-                 (c.demandeur_id === toId && c.receveur_id === meId))
+                c.demandeur_id === meId &&
+                c.receveur_id === toId
               )
             ),
           };
@@ -245,9 +266,12 @@ export const useMock = create<MockState>()(
       name: "ridly-mock-v7",
       // Don't persist the hydration flag — it must start false every page load
       partialize: (state) => {
+        // Exclure les champs qui ne doivent jamais être persistés
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { _hasHydrated, ...rest } = state;
-        return rest;
+        // Supprimer le mot de passe du draft avant persistence
+        const { onboardingDraft: { password: _pw, ...draftSafe }, ...restWithoutDraft } = rest as typeof rest & { onboardingDraft: { password?: string } };
+        return { ...restWithoutDraft, onboardingDraft: draftSafe };
       },
       onRehydrateStorage: () => () => {
         // Fires once localStorage hydration is complete (or if storage is empty)

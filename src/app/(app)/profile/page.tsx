@@ -84,7 +84,7 @@ export default function ProfilePage() {
           <div className="flex flex-wrap gap-1.5 mt-2">
             {me.permis_verifie ? (
               <Tag tone="success">
-                <ShieldCheck size={12} /> Permis ✓
+                <ShieldCheck size={12} /> Profil vérifié
               </Tag>
             ) : null}
             {me.is_online ? <Tag tone="trust">● En ligne</Tag> : null}
@@ -99,18 +99,19 @@ export default function ProfilePage() {
 
       {/* CTA modifier */}
       <div className="px-6 mt-4">
-        <Link href="/profile/edit">
-          <Button variant="secondary" fullWidth>
-            Modifier mon profil
-          </Button>
-        </Link>
+        <button
+          onClick={() => router.push("/profile/edit")}
+          className="w-full h-12 rounded-card bg-accent text-white font-display font-bold text-[14px] flex items-center justify-center gap-2"
+        >
+          Modifier mon profil
+        </button>
       </div>
 
       {/* Stats */}
       <Card className="mx-6 mt-3 p-4 grid grid-cols-3 divide-x divide-line">
         <Stat top={String(me.rides_organises)} bottom="Organisés" />
         <Stat top={String(me.rides_rejoints)} bottom="Rejoints" />
-        <Stat top={me.km_parcourus > 0 ? `${me.km_parcourus}km` : "0km"} bottom="Parcourus" />
+        <Stat top={me.km_parcourus > 0 ? `${me.km_parcourus.toLocaleString("fr-FR")} km` : "0 km"} bottom="Parcourus" />
       </Card>
 
       {/* Sa moto */}
@@ -132,8 +133,8 @@ export default function ProfilePage() {
         </Card>
       ) : (
         <Link href="/profile/edit" className="mx-6 block">
-          <div className="border-[1.5px] border-dashed border-line rounded-card p-4 flex items-center gap-3 text-ink-muted">
-            <div className="h-10 w-10 rounded-full bg-bg-secondary flex items-center justify-center">
+          <div className="rounded-card p-4 flex items-center gap-3 bg-accent text-white">
+            <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
               <Plus size={18} strokeWidth={2} />
             </div>
             <span className="text-[13px] font-semibold">Ajouter une moto</span>
@@ -152,12 +153,12 @@ export default function ProfilePage() {
       ) : hasSorties ? (
         <div className="px-6 flex flex-wrap gap-2">
           {me.types_sorties.map((s) => (
-            <Tag key={s} tone="neutral">{SORTIE_LABEL[s]}</Tag>
+            <Tag key={s} tone={s === "longue_distance" ? "roadtrip" : "neutral"}>{SORTIE_LABEL[s]}</Tag>
           ))}
         </div>
       ) : (
         <Link href="/profile/edit" className="px-6 block">
-          <div className="border-[1.5px] border-dashed border-line rounded-card p-3 flex items-center gap-3 text-ink-muted">
+          <div className="rounded-card p-3 flex items-center gap-3 bg-accent text-white">
             <Plus size={16} strokeWidth={2} />
             <span className="text-[13px] font-semibold">Ajouter mes goûts</span>
           </div>
@@ -181,7 +182,7 @@ export default function ProfilePage() {
         />
         <Row
           icon={<ShieldCheck size={18} />}
-          title="Vérifier mon permis"
+          title="Vérifier mon profil"
           desc={me.permis_verifie ? "Vérifié" : "Optionnel — badge confiance"}
           href="/profile/verify"
         />

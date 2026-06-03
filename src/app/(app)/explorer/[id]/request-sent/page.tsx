@@ -69,7 +69,7 @@ export default function RequestSentPage() {
               ) : null}
             </p>
             <p className="text-[11.5px] text-ink-muted mt-0.5">
-              {rider.ville} · {rider.permis_verifie ? "permis vérifié" : "permis en attente"}
+              {rider.ville} · {rider.permis_verifie ? "profil vérifié" : "profil en attente"}
             </p>
           </div>
         </div>

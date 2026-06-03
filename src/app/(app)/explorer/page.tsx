@@ -1,7 +1,8 @@
 "use client";
-import { Bell, Filter, Search, Users, Bike, X } from "lucide-react";
+import { Bell, Filter, Users, Bike, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Chip } from "@/components/ui/Tag";
 import { Sheet } from "@/components/ui/Sheet";
 import { RangeSlider, Slider } from "@/components/ui/RangeSlider";
@@ -26,13 +27,28 @@ import {
 import { useMock } from "@/lib/mock/store";
 import { RideCard } from "@/components/ride/RideCard";
 
-const FILTERS = ["A proximité", "Trail", "Intermédiaire", "Balade", "Café / Apéro", "Twisty"];
+// Filtres rapides motards — libellés qui correspondent aux champs moto_type / niveau / types_sorties
+const FILTERS = [
+  { id: "A proximité", label: "A proximité" },
+  { id: "Trail",        label: "Trail" },          // moto_type
+  { id: "Intermédiaire",label: "Intermédiaire" },  // niveau
+  { id: "Balade",       label: "Balade" },          // types_sorties
+  { id: "Café / Apéro", label: "Café / Apéro" },   // types_sorties
+  { id: "Twisty",       label: "Twisty" },          // types_sorties
+] as const;
 
 type ExplorerMode = "riders" | "rides";
 
 export default function ExplorerPage() {
+  return <Suspense><ExplorerPageInner /></Suspense>;
+}
+
+function ExplorerPageInner() {
   const me = useMe();
-  const [mode, setMode] = useState<ExplorerMode>("riders");
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<ExplorerMode>(
+    searchParams.get("mode") === "rides" ? "rides" : "riders"
+  );
   const all = useNearbyRiders();
   const suggestions = useSuggestions();
   const unread = useUnreadNotificationsCount();
@@ -48,6 +64,13 @@ export default function ExplorerPage() {
     }, 10_000);
     return () => clearInterval(id);
   }, []);
+
+  const momentDuJour = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "ce matin";
+    if (h < 18) return "cet après-midi";
+    return "ce soir";
+  })();
 
   const [active, setActive] = useState("A proximité");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -79,9 +102,15 @@ export default function ExplorerPage() {
       if (active === "Balade" && !r.types_sorties.includes("balade")) return false;
       if (active === "Café / Apéro" && !r.types_sorties.includes("cafe")) return false;
       if (active === "Twisty" && !r.types_sorties.includes("twisty")) return false;
+      // Filtre distance (basé sur lat/lng)
+      if (maxDistance < 50 && me) {
+        const dx = (r.lat - me.lat) * 111;
+        const dy = (r.lng - me.lng) * 111 * Math.cos(me.lat * Math.PI / 180);
+        if (Math.sqrt(dx * dx + dy * dy) > maxDistance) return false;
+      }
       return true;
     });
-  }, [all, active, motos, sorties]);
+  }, [all, active, motos, sorties, maxDistance, me]);
 
   const onlineCount = filtered.filter((r) => r.is_online).length;
 
@@ -117,8 +146,7 @@ export default function ExplorerPage() {
     return allRides.filter((r) => {
       if (rideSorties.length > 0 && !r.type_sortie.some((s) => rideSorties.includes(s as SortieType))) return false;
       if (rideNiveau) {
-        const createur = users.find((u) => u.id === r.createur_id);
-        if (createur && createur.niveau !== rideNiveau) return false;
+        if (r.niveau_requis !== rideNiveau && r.niveau_requis !== null) return false;
       }
       if (ridePlaces === "1+") {
         const taken = (r.participants ?? []).filter((p) => p.statut === "accepte").length;
@@ -146,8 +174,8 @@ export default function ExplorerPage() {
         if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
       }
       return true;
-    });
-  }, [allRides, rideSorties, rideNiveau, ridePlaces, rideVerifie, rideDateFilter, users]);
+    }).sort((a, b) => new Date(a.date_ride + "T" + a.heure_depart).getTime() - new Date(b.date_ride + "T" + b.heure_depart).getTime());
+  }, [allRides, rideSorties, rideNiveau, ridePlaces, rideVerifie, rideDateFilter, rideDistance, rideMinAge, rideMaxAge, users]);
 
   return (
     <main className="min-h-[100dvh]">
@@ -160,7 +188,7 @@ export default function ExplorerPage() {
             </Link>
             <div>
               <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-muted font-bold">
-                {clock} · 19°
+                {clock}
               </p>
               <p className="font-display font-bold text-[14px] -mt-0.5">
                 Salut, {me?.prenom ?? "Motard"}
@@ -168,9 +196,7 @@ export default function ExplorerPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center text-ink">
-              <Search size={16} strokeWidth={1.8} />
-            </button>
+
             <Link
               href="/notifications"
               aria-label="Notifications"
@@ -214,7 +240,7 @@ export default function ExplorerPage() {
         <div className="px-6 pt-3">
           <h1 className="text-h1 mt-2 leading-tight">
             {filtered.length === 0 ? "Aucun motard" : `${filtered.length} motard(e)s`}{" "}
-            <span className="text-accent">près de toi</span> ce matin
+            <span className="text-accent">près de toi</span> {momentDuJour}
           </h1>
           <p className="text-[12.5px] text-ink-muted mt-1.5">
             {onlineCount} en ligne maintenant
@@ -224,17 +250,21 @@ export default function ExplorerPage() {
               <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">Filtres rapides</p>
               <button
                 onClick={() => setFiltersOpen(true)}
-                className="flex items-center gap-1 text-[11px] font-semibold text-ink-muted hover:text-ink transition-colors"
+                className="flex items-center gap-1.5 text-[11px] font-bold text-ink"
               >
-                <Filter size={12} strokeWidth={2} /> Avancés
+                <Filter size={11} strokeWidth={2.5} /> Avancés
               </button>
             </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-6 px-6 no-scrollbar">
+            <div className="relative -mx-6">
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10" style={{ background: "linear-gradient(to right, var(--bg-primary, #FAF8F5), transparent)" }} />
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10" style={{ background: "linear-gradient(to left, var(--bg-primary, #FAF8F5), transparent)" }} />
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 px-5 no-scrollbar">
               {FILTERS.map((f) => (
-                <Chip key={f} active={active === f} onClick={() => setActive(f)}>
-                  {f}
+                <Chip key={f.id} active={active === f.id} onClick={() => setActive(f.id)}>
+                  {f.label}
                 </Chip>
               ))}
+              </div>
             </div>
           </div>
         </div>
@@ -304,7 +334,7 @@ export default function ExplorerPage() {
             <p className="text-label mb-2">Type de sortie</p>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(SORTIE_LABEL) as SortieType[]).map((s) => (
-                <Chip key={s} active={sorties.includes(s)} onClick={() => toggleSortie(s)}>{SORTIE_LABEL[s]}</Chip>
+                <Chip key={s} active={sorties.includes(s)} onClick={() => toggleSortie(s)} className={s === "longue_distance" ? (!sorties.includes(s) ? "bg-[#EEF3F8] text-[#1A2E4A] border-[#BFCFDF]" : "bg-[#1A2E4A] text-[#A8C4E0] border-[#1A2E4A]") : ""}>{SORTIE_LABEL[s]}</Chip>
               ))}
             </div>
           </div>
@@ -341,21 +371,25 @@ export default function ExplorerPage() {
                 <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">Filtres rapides</p>
                 <button
                   onClick={() => setRidesFiltersOpen(true)}
-                  className="flex items-center gap-1 text-[11px] font-semibold text-ink-muted hover:text-ink transition-colors"
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-ink"
                 >
-                  <Filter size={12} strokeWidth={2} /> Avancés
+                  <Filter size={11} strokeWidth={2.5} /> Avancés
                 </button>
               </div>
-              <div className="flex gap-2 overflow-x-auto -mx-6 px-6 pb-2 no-scrollbar">
-                <Chip active={rideDateFilter === "today"} onClick={() => setRideDateFilter(rideDateFilter === "today" ? null : "today")}>Aujourd'hui</Chip>
-                <Chip active={rideDateFilter === "week"} onClick={() => setRideDateFilter(rideDateFilter === "week" ? null : "week")}>Cette semaine</Chip>
-                <Chip active={rideDateFilter === "month"} onClick={() => setRideDateFilter(rideDateFilter === "month" ? null : "month")}>Ce mois</Chip>
-                {(Object.keys(SORTIE_LABEL) as SortieType[]).map((s) => (
-                  <Chip key={s} active={rideSorties.includes(s)} onClick={() => toggleRideSortie(s)}>{SORTIE_LABEL[s]}</Chip>
-                ))}
-                {(Object.keys(NIVEAU_LABEL) as Niveau[]).map((n) => (
-                  <Chip key={n} active={rideNiveau === n} onClick={() => setRideNiveau(rideNiveau === n ? null : n)}>{NIVEAU_LABEL[n]}</Chip>
-                ))}
+              <div className="relative -mx-6">
+                <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10" style={{ background: "linear-gradient(to right, var(--bg-primary, #FAF8F5), transparent)" }} />
+                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10" style={{ background: "linear-gradient(to left, var(--bg-primary, #FAF8F5), transparent)" }} />
+                <div className="flex gap-2 overflow-x-auto px-5 pb-2 no-scrollbar">
+                  <Chip active={rideDateFilter === "today"} onClick={() => setRideDateFilter(rideDateFilter === "today" ? null : "today")}>Aujourd'hui</Chip>
+                  <Chip active={rideDateFilter === "week"} onClick={() => setRideDateFilter(rideDateFilter === "week" ? null : "week")}>Cette semaine</Chip>
+                  <Chip active={rideDateFilter === "month"} onClick={() => setRideDateFilter(rideDateFilter === "month" ? null : "month")}>Ce mois</Chip>
+                  {(Object.keys(SORTIE_LABEL) as SortieType[]).map((s) => (
+                    <Chip key={s} active={rideSorties.includes(s)} onClick={() => toggleRideSortie(s)} className={s === "longue_distance" ? (!rideSorties.includes(s) ? "bg-[#EEF3F8] text-[#1A2E4A] border-[#BFCFDF]" : "bg-[#1A2E4A] text-[#A8C4E0] border-[#1A2E4A]") : ""}>{SORTIE_LABEL[s]}</Chip>
+                  ))}
+                  {(Object.keys(NIVEAU_LABEL) as Niveau[]).map((n) => (
+                    <Chip key={n} active={rideNiveau === n} onClick={() => setRideNiveau(rideNiveau === n ? null : n)}>{NIVEAU_LABEL[n]}</Chip>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -402,7 +436,7 @@ export default function ExplorerPage() {
             <p className="text-label mb-2">Type de sortie</p>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(SORTIE_LABEL) as SortieType[]).map((s) => (
-                <Chip key={s} active={rideSorties.includes(s)} onClick={() => toggleRideSortie(s)}>{SORTIE_LABEL[s]}</Chip>
+                <Chip key={s} active={rideSorties.includes(s)} onClick={() => toggleRideSortie(s)} className={s === "longue_distance" ? (!rideSorties.includes(s) ? "bg-[#EEF3F8] text-[#1A2E4A] border-[#BFCFDF]" : "bg-[#1A2E4A] text-[#A8C4E0] border-[#1A2E4A]") : ""}>{SORTIE_LABEL[s]}</Chip>
               ))}
             </div>
           </div>

@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Check, Search, Star, X } from "lucide-react";
+import { Check, Star, UserCheck, X } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { RideCard } from "@/components/ride/RideCard";
@@ -12,54 +13,61 @@ import {
   useMyRides,
   usePastRidesWithReports,
 } from "@/lib/data/api";
+import { Avatar } from "@/components/ui/Avatar";
 import { useMock } from "@/lib/mock/store";
 import type { Ride, RideReport, User } from "@/lib/types";
 
-type Tab = "a-venir" | "en-attente" | "passe";
+type Tab = "a-venir" | "en-attente" | "passe" | "validations";
 
 export default function RidesPage() {
+  return <Suspense><RidesPageInner /></Suspense>;
+}
+
+function RidesPageInner() {
   const me = useMe();
   const users = useMock((s) => s.users);
+  const rides = useMock((s) => s.rides);
   const my = useMyRides();
   const past = usePastRidesWithReports();
   const stats = useLifetimeStats();
-  const [tab, setTab] = useState<Tab>("a-venir");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams.get("tab");
+    if (t === "passe" || t === "en-attente" || t === "validations") return t;
+    return "a-venir";
+  });
+
+  // Demandes en attente sur les rides que j'organise avec validation manuelle
+  const pendingRequests = rides
+    .filter((r) => r.createur_id === me?.id && r.validation_manuelle && r.statut !== "annule" && r.statut !== "termine")
+    .flatMap((r) =>
+      (r.participants ?? [])
+        .filter((p) => p.statut === "en_attente")
+        .map((p) => ({ ride: r, participant: p, user: users.find((u) => u.id === p.user_id) }))
+    )
+    .filter((x) => x.user != null) as { ride: Ride; participant: import("@/lib/types").RideParticipant; user: User }[];
 
   return (
     <main className="min-h-[100dvh]">
       <div className="safe-top px-[22px] pt-1 pb-2 flex items-center justify-between">
         <h1 className="text-h1">Mes rides</h1>
-        <button className="h-9 w-9 rounded-full bg-bg-secondary flex items-center justify-center text-ink">
-          <Search size={16} strokeWidth={1.8} />
-        </button>
+        <div className="h-9 w-9" />
       </div>
 
-      {/* Tabs (Batch 4 mockup) */}
+      {/* Tabs */}
       <div className="mx-[22px] mt-3 p-1 bg-bg-secondary rounded-[14px] flex gap-1">
-        <Tab
-          active={tab === "a-venir"}
-          onClick={() => setTab("a-venir")}
-          label="À venir"
-          count={my.aVenir.length}
-        />
-        <Tab
-          active={tab === "en-attente"}
-          onClick={() => setTab("en-attente")}
-          label="En attente"
-          count={my.enAttente.length}
-        />
-        <Tab
-          active={tab === "passe"}
-          onClick={() => setTab("passe")}
-          label="Passés"
-          count={past.length}
-        />
+        <Tab active={tab === "a-venir"} onClick={() => setTab("a-venir")} label="À venir" count={my.aVenir.length} />
+        <Tab active={tab === "en-attente"} onClick={() => setTab("en-attente")} label="En attente" count={my.enAttente.length} />
+        <Tab active={tab === "passe"} onClick={() => setTab("passe")} label="Passés" count={past.length} />
+        <Tab active={tab === "validations"} onClick={() => setTab("validations")} label="Valider" count={pendingRequests.length} accent />
       </div>
 
       {tab === "a-venir" ? (
         <UpcomingFeed rides={my.aVenir} meId={me?.id} users={users} />
       ) : tab === "en-attente" ? (
         <PendingFeed rides={my.enAttente} users={users} />
+      ) : tab === "validations" ? (
+        <ValidationFeed requests={pendingRequests} />
       ) : (
         <PastFeed past={past} stats={stats} />
       )}
@@ -72,29 +80,35 @@ function Tab({
   onClick,
   label,
   count,
+  accent,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
   count: number;
+  accent?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       className={`flex-1 h-9 rounded-[10px] font-display font-bold text-[12px] flex items-center justify-center gap-1.5 ${
-        active
-          ? "bg-white text-ink shadow-card"
-          : "text-ink-muted"
+        active ? "bg-white text-ink shadow-card" : "text-ink-muted"
       }`}
     >
       {label}
-      <span
-        className={`font-mono text-[10px] px-1.5 py-px rounded-full font-semibold ${
-          active ? "bg-accent-soft text-accent" : "bg-[rgba(138,127,111,0.18)] text-ink-muted"
-        }`}
-      >
-        {count}
-      </span>
+      {count > 0 && (
+        <span
+          className={`font-mono text-[10px] px-1.5 py-px rounded-full font-semibold ${
+            active
+              ? accent ? "bg-accent text-white" : "bg-accent-soft text-accent"
+              : accent && count > 0
+              ? "bg-accent/20 text-accent"
+              : "bg-[rgba(138,127,111,0.18)] text-ink-muted"
+          }`}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }
@@ -119,13 +133,14 @@ function UpcomingFeed({
     <section className="px-[22px] pt-3.5 pb-32 space-y-3">
       {rides.map((r, i) => {
         const isOrganizer = meId === r.createur_id;
-        const featured = i === 0; // First upcoming = "Demain" highlight
+        const featured = i === 0; // Premier ride à venir = highlight accent
         return (
           <RideCard
             key={r.id}
             ride={r}
             users={users}
             highlight={featured}
+            fromParam="from=mes-rides&tab=a-venir"
             badge={
               isOrganizer
                 ? { label: "Tu organises", tone: "accent" }
@@ -159,9 +174,129 @@ function PendingFeed({
           key={r.id}
           ride={r}
           users={users}
+          fromParam="from=mes-rides&tab=en-attente"
           badge={{ label: "En attente", tone: "neutral" }}
         />
       ))}
+    </section>
+  );
+}
+
+function ValidationFeed({
+  requests,
+}: {
+  requests: { ride: Ride; participant: import("@/lib/types").RideParticipant; user: User }[];
+}) {
+  const { acceptParticipant, refuseParticipant } = useActions();
+  // local state: "pending-accept" | "pending-refuse" | "done-accept" | "done-refuse" | null
+  const [states, setStates] = useState<Record<string, "pending-accept" | "pending-refuse" | "done-accept" | "done-refuse">>({});
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  function key(rideId: string, userId: string) { return `${rideId}__${userId}`; }
+
+  function startAction(rideId: string, userId: string, action: "accept" | "refuse") {
+    const k = key(rideId, userId);
+    if (timers.current[k]) clearTimeout(timers.current[k]);
+    setStates((s) => ({ ...s, [k]: action === "accept" ? "pending-accept" : "pending-refuse" }));
+    timers.current[k] = setTimeout(() => {
+      if (action === "accept") { acceptParticipant(rideId, userId); setStates((s) => ({ ...s, [k]: "done-accept" })); }
+      else { refuseParticipant(rideId, userId); setStates((s) => ({ ...s, [k]: "done-refuse" })); }
+    }, 5000);
+  }
+
+  function cancel(rideId: string, userId: string) {
+    const k = key(rideId, userId);
+    if (timers.current[k]) clearTimeout(timers.current[k]);
+    setStates((s) => { const n = { ...s }; delete n[k]; return n; });
+  }
+
+  useEffect(() => () => { Object.values(timers.current).forEach(clearTimeout); }, []);
+
+  if (requests.length === 0) {
+    return (
+      <div className="px-6 mt-12 text-center text-[13px] text-ink-muted">
+        Aucune demande en attente de validation.
+      </div>
+    );
+  }
+
+  return (
+    <section className="px-[22px] pt-3.5 pb-32 space-y-3">
+      {requests.map(({ ride, participant, user }) => {
+        const k = key(ride.id, user.id);
+        const st = states[k] ?? null;
+        const isPendingAccept = st === "pending-accept";
+        const isPendingRefuse = st === "pending-refuse";
+        const isDone = st === "done-accept" || st === "done-refuse";
+        if (isDone) return null;
+
+        return (
+          <div key={k} className="bg-white border border-line rounded-card p-4">
+            {/* En-tête ride */}
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-accent font-bold mb-2">
+              {ride.titre ?? "Ride"} · {ride.date_ride}
+            </p>
+
+            {/* Carte motard */}
+            <div className="flex items-center gap-3">
+              <Avatar src={user.photo_url} name={user.prenom} size="lg" online={user.is_online} />
+              <div className="flex-1 min-w-0">
+                <p className="font-display font-bold text-[15px]">{user.prenom}</p>
+                <p className="text-[12px] text-ink-muted">{user.ville}</p>
+                {user.permis_verifie && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-success font-bold mt-0.5">
+                    <UserCheck size={10} strokeWidth={2.5} /> Profil vérifié
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Boutons action */}
+            <div className="mt-3 flex gap-2">
+              {isPendingAccept ? (
+                <button
+                  onClick={() => cancel(ride.id, user.id)}
+                  className="relative flex-1 h-[38px] rounded-[10px] overflow-hidden text-[12px] font-bold"
+                  style={{ background: "#E8E4DC", color: "#2A2624" }}
+                >
+                  <span
+                    className="absolute inset-0 bg-success rounded-[10px]"
+                    style={{ animation: "drain-rtl 5s linear forwards", transformOrigin: "left center" }}
+                  />
+                  <span className="relative z-10 text-white">Annuler</span>
+                </button>
+              ) : isPendingRefuse ? (
+                <button
+                  onClick={() => cancel(ride.id, user.id)}
+                  className="relative flex-1 h-[38px] rounded-[10px] overflow-hidden text-[12px] font-bold"
+                  style={{ background: "#E8E4DC", color: "#2A2624" }}
+                >
+                  <span
+                    className="absolute inset-0 bg-accent rounded-[10px]"
+                    style={{ animation: "drain-rtl 5s linear forwards", transformOrigin: "left center" }}
+                  />
+                  <span className="relative z-10 text-white">Annuler</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => startAction(ride.id, user.id, "accept")}
+                    className="flex-1 h-[38px] rounded-[10px] bg-success text-white font-display font-bold text-[13px] flex items-center justify-center gap-1.5"
+                  >
+                    <Check size={14} strokeWidth={2.5} /> Accepter
+                  </button>
+                  <button
+                    onClick={() => startAction(ride.id, user.id, "refuse")}
+                    className="flex-1 h-[38px] rounded-[10px] bg-bg-secondary text-ink font-display font-bold text-[13px] flex items-center justify-center gap-1.5"
+                  >
+                    <X size={14} strokeWidth={2.5} /> Refuser
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </section>
   );
 }
@@ -265,7 +400,7 @@ function PastCard({
       fadeTimer.current = setTimeout(() => {
         hideRideFromHistory(ride.id);
       }, 2500);
-    }, 10000);
+    }, 5000);
   }
 
   function cancel() {
@@ -289,7 +424,7 @@ function PastCard({
       }}
     >
       <Link
-        href={`/rides/${ride.id}`}
+        href={`/rides/${ride.id}?from=mes-rides&tab=passe`}
         className="block bg-white border border-line rounded-card p-3 flex gap-3 items-center"
       >
         {/* Mini map thumb */}
@@ -326,7 +461,7 @@ function PastCard({
               <span
                 key="drain-annuler"
                 className="absolute inset-0 bg-ink rounded-[8px]"
-                style={{ animation: "drain-rtl 10s linear forwards", transformOrigin: "left center" }}
+                style={{ animation: "drain-rtl 5s linear forwards", transformOrigin: "left center" }}
               />
               <span className="relative z-10 text-bg-primary">Annuler</span>
             </button>
@@ -339,19 +474,15 @@ function PastCard({
               À noter
             </span>
           )}
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (pending) cancel(); else startDelete(); }}
-            className="h-[30px] w-[30px] rounded-[8px] bg-accent text-bg-primary flex items-center justify-center active:opacity-80 transition-opacity"
-            title={pending ? "Annuler la suppression" : "Supprimer de l'historique"}
-          >
-            <X size={13} strokeWidth={2.5} />
-          </button>
-          <style>{`
-            @keyframes drain-rtl {
-              from { transform: scaleX(1); }
-              to   { transform: scaleX(0); }
-            }
-          `}</style>
+          {!pending && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); startDelete(); }}
+              className="h-[30px] w-[30px] rounded-[8px] bg-accent text-bg-primary flex items-center justify-center active:opacity-80 transition-opacity"
+              title="Supprimer de l'historique"
+            >
+              <X size={13} strokeWidth={2.5} />
+            </button>
+          )}
         </div>
       </Link>
     </div>

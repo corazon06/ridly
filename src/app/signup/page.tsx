@@ -25,7 +25,7 @@ export default function SignupPage() {
   const valid = /\S+@\S+\.\S+/.test(email) && pw.length >= 8 && cguAccepted;
   const strength = passwordStrength(pw);
   const filledBars =
-    pw.length === 0 ? 0 : strength === "Faible" ? 1 : strength === "Moyen" ? 2 : 3;
+    pw.length === 0 ? 0 : pw.length > 16 ? 3 : pw.length > 12 ? 2 : 1;
 
   function next() {
     setOnboardingDraft({ email, password: pw });
@@ -97,7 +97,7 @@ export default function SignupPage() {
                 const on = i < filledBars;
                 const colour =
                   filledBars === 1
-                    ? "bg-warning"
+                    ? "bg-accent-dark"
                     : filledBars === 2
                     ? "bg-warning"
                     : "bg-success";
@@ -124,6 +124,30 @@ export default function SignupPage() {
                 {strength}
               </span>
             ) : null}
+          </div>
+          {/* Conditions mot de passe */}
+          <div className="mt-2 space-y-1">
+            {[
+              { ok: pw.length >= 8, label: "8 caractères minimum" },
+              { ok: /[A-Z]/.test(pw), label: "1 majuscule" },
+              { ok: /\d/.test(pw), label: "1 chiffre" },
+            ].map(({ ok, label }) => (
+              <p
+                key={label}
+                className={`flex items-center gap-1.5 text-[11px] font-medium transition-colors ${
+                  ok ? "text-success" : "text-ink-muted"
+                }`}
+              >
+                <span
+                  className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
+                    ok ? "bg-success" : "bg-bg-tertiary"
+                  }`}
+                >
+                  {ok ? <Check size={8} strokeWidth={3.5} className="text-white" /> : null}
+                </span>
+                {label}
+              </p>
+            ))}
           </div>
         </div>
 

@@ -5,6 +5,16 @@
  * mock store (for first preview / offline demo) and Supabase (real backend).
  *
  * Add new queries here so the rest of the codebase stays backend-agnostic.
+ *
+ * TODO (avant production) :
+ * - useMe()            → Supabase auth session
+ * - useUser()          → Supabase users table
+ * - useRides()         → Supabase rides table
+ * - useConversations() → Supabase conversations table
+ * - useMessages()      → Supabase messages table
+ * - useActions()       → Supabase mutations / RLS
+ * Toutes les fonctions ci-dessous lisent directement useMock() sans
+ * condition IS_MOCK — à wrapper avant déploiement production.
  */
 import { IS_MOCK } from "@/lib/supabase/config";
 import { useMock } from "@/lib/mock/store";
@@ -32,12 +42,19 @@ export function useMe(): User | null {
     if (!meId) return null;
     return users.find((u) => u.id === meId) ?? null;
   }
-  // TODO: wire to Supabase auth context.
+  // TODO: wire to Supabase auth context (currently only mock mode is functional).
+  if (process.env.NODE_ENV === "development") {
+    console.warn("[Ridly] useMe() called outside IS_MOCK — Supabase auth not wired yet.");
+  }
   return null;
 }
 
 export function useUser(id: string | undefined): User | undefined {
   const users = useMock((s) => s.users);
+  if (!IS_MOCK) {
+    // TODO: wire to Supabase users table.
+    return undefined;
+  }
   return id ? users.find((u) => u.id === id) : undefined;
 }
 
@@ -96,6 +113,7 @@ export function useMyRides() {
 
   const aVenir = rides.filter((r) => {
     if (r.date_ride < today) return false;
+    if (r.statut === "annule" || r.statut === "termine") return false;
     if (r.createur_id === me.id) return true;
     return r.participants?.some(
       (p) => p.user_id === me.id && p.statut === "accepte"
@@ -103,6 +121,8 @@ export function useMyRides() {
   });
 
   const enAttente = rides.filter((r) =>
+    r.date_ride >= today &&
+    r.statut !== "annule" &&
     r.participants?.some(
       (p) => p.user_id === me.id && p.statut === "en_attente"
     )
@@ -192,7 +212,9 @@ export function usePastRidesWithReports(): { ride: Ride; report: RideReport | un
     .filter(
       (r) =>
         r.createur_id === me.id ||
-        r.participants?.some((p) => p.user_id === me.id)
+        r.participants?.some(
+          (p) => p.user_id === me.id && (p.statut === "accepte" || p.statut === "present")
+        )
     )
     .sort((a, b) => (a.date_ride < b.date_ride ? 1 : -1))
     .map((ride) => ({
@@ -241,6 +263,7 @@ export function useActions() {
     upsertRide: m.upsertRide,
     joinRide: m.joinRide,
     acceptParticipant: m.acceptParticipant,
+    refuseParticipant: m.refuseParticipant,
     sendConnection: m.sendConnection,
     hideRideFromHistory: m.hideRideFromHistory,
     cancelConnection: m.cancelConnection,

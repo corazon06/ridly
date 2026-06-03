@@ -63,7 +63,7 @@ export function RiderCard({
               <div className="text-label text-ink">
                 {rider.prenom}, {age}
                 {rider.permis_verifie ? (
-                  <span className="ml-1.5 text-success" title="Permis vérifié">●</span>
+                  <span className="ml-1.5 text-success" title="Profil vérifié">●</span>
                 ) : null}
               </div>
               <div className="text-caption text-ink-muted flex items-center gap-1">
@@ -73,7 +73,7 @@ export function RiderCard({
             </div>
             {isConnected ? (
               <span className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-[10px] bg-success/10 text-success text-[12px] font-bold shrink-0">
-                <UserCheck size={12} strokeWidth={2.5} /> Ajouté
+                <UserCheck size={12} strokeWidth={2.5} /> En contact
               </span>
             ) : isPending ? (
               <div className="inline-flex items-center gap-1 shrink-0">

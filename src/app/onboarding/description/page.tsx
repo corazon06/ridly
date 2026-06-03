@@ -44,7 +44,7 @@ export default function StepDescription() {
   return (
     <main className="min-h-[100dvh] flex flex-col safe-bottom relative">
       <StepHeader
-        step={5}
+        step={6}
         eyebrow="dernière touche"
         title="Présente-toi en quelques mots"
         subtitle="Optionnel, mais ça aide à briser la glace."

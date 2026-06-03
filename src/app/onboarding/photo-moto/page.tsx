@@ -1,22 +1,17 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  Camera,
-  Check,
-  Image as ImageIcon,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { ArrowRight, Camera, Image as ImageIcon, X } from "lucide-react";
 import { StepHeader } from "@/components/onboarding/StepHeader";
 import { Button } from "@/components/ui/Button";
 import { useActions } from "@/lib/data/api";
 
-export default function StepPhoto() {
+export default function StepPhotoMoto() {
   const router = useRouter();
   const { setOnboardingDraft, onboardingDraft } = useActions();
-  const [src, setSrc] = useState<string | null>(onboardingDraft?.photo_url ?? null);
+  const [src, setSrc] = useState<string | null>(
+    onboardingDraft.moto_photo_url ?? null
+  );
 
   function handleFile(f: File | null) {
     if (!f) return;
@@ -24,25 +19,27 @@ export default function StepPhoto() {
   }
 
   function next() {
-    setOnboardingDraft({
-      photo_url: src ?? null,
-    });
-    router.push("/onboarding/infos");
+    setOnboardingDraft({ moto_photo_url: src ?? null });
+    router.push("/onboarding/sorties");
   }
+
+  const marque = onboardingDraft.moto_marque;
+  const modele = onboardingDraft.moto_modele;
+  const motoLabel = marque && modele ? `${marque} ${modele}` : marque || "ta moto";
 
   return (
     <main className="min-h-[100dvh] flex flex-col safe-bottom relative">
       <StepHeader
-        step={1}
-        eyebrow="ta photo"
-        title="On a besoin de voir ta tête"
-        subtitle="Pour la confiance entre motard(e)s. Aucune photo retouchée acceptée."
+        step={4}
+        eyebrow="photo de ta moto"
+        title={`Une photo de ${motoLabel}`}
+        subtitle="Elle sera affichée sur ton profil. Montre-la sous son meilleur angle !"
       />
 
       <div className="px-6 pt-2 pb-48 flex-1 no-scrollbar overflow-y-auto">
-        <div className="relative mx-auto h-[220px] w-[220px] rounded-full bg-bg-secondary border-[2.5px] border-dashed border-accent flex items-center justify-center mt-5 overflow-hidden">
+        <div className="relative mx-auto h-[220px] w-[220px] rounded-[28px] bg-bg-secondary border-[2.5px] border-dashed border-accent flex items-center justify-center mt-5 overflow-hidden">
           <div
-            className="absolute inset-[-10px] rounded-full -z-10"
+            className="absolute inset-[-10px] rounded-[28px] -z-10"
             style={{
               background:
                 "radial-gradient(circle, rgba(178,82,52,0.08) 0%, transparent 70%)",
@@ -51,7 +48,11 @@ export default function StepPhoto() {
           {src ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <img
+                src={src}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
               <button
                 type="button"
                 onClick={() => setSrc(null)}
@@ -61,8 +62,9 @@ export default function StepPhoto() {
               </button>
             </>
           ) : (
-            <div className="h-[74px] w-[74px] rounded-full bg-bg-primary flex items-center justify-center shadow-card">
-              <Camera size={32} strokeWidth={1.7} className="text-accent" />
+            <div className="flex flex-col items-center gap-2 text-ink-muted">
+              <Camera size={36} strokeWidth={1.5} className="text-accent" />
+              <p className="text-[12px] font-display font-bold">Photo de la moto</p>
             </div>
           )}
         </div>
@@ -72,12 +74,12 @@ export default function StepPhoto() {
             <input
               type="file"
               accept="image/*"
-              capture="user"
+              capture="environment"
               className="hidden"
               onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
             />
             <div className="h-[46px] rounded-card-sm bg-ink text-bg-primary font-display font-bold text-[13px] flex items-center justify-center gap-2 shadow-cta">
-              <Camera size={14} strokeWidth={1.9} /> Selfie
+              <Camera size={14} strokeWidth={1.9} /> Prendre une photo
             </div>
           </label>
           <label className="cursor-pointer">
@@ -92,31 +94,6 @@ export default function StepPhoto() {
             </div>
           </label>
         </div>
-
-        <div className="mt-6 rounded-card-sm bg-bg-secondary p-3.5 flex gap-2.5 items-start">
-          <span className="h-8 w-8 rounded-[9px] bg-accent text-bg-primary flex items-center justify-center shrink-0">
-            <ShieldCheck size={14} strokeWidth={2} />
-          </span>
-          <p className="text-[12.5px] leading-snug text-ink-soft">
-            <span className="font-bold text-ink">Vérification manuelle sous 24 h.</span>{" "}
-            Une vraie personne regarde, pas un algo. Tes données sont protégées et ne seront jamais revendues.
-          </p>
-        </div>
-
-        <ul className="mt-3.5 px-1 text-[11.5px] leading-relaxed text-ink-muted space-y-0.5">
-          <li className="flex items-center gap-1.5">
-            <Check size={11} strokeWidth={3} className="text-success" /> Toi et uniquement toi
-          </li>
-          <li className="flex items-center gap-1.5">
-            <Check size={11} strokeWidth={3} className="text-success" /> Sans casque, visage apparent
-          </li>
-          <li className="flex items-center gap-1.5">
-            <X size={11} strokeWidth={3} className="text-accent" /> Ni filtres, ni retouche
-          </li>
-        </ul>
-        <p className="mt-3 text-[11.5px] text-ink-muted/70 italic px-1">
-          Pas de masque, pas de filtre : c'est comme ça qu'on roule en confiance. 🤝
-        </p>
       </div>
 
       <div className="absolute left-0 right-0 bottom-0 px-[22px] pt-5 pb-7 sticky-bottom-fade space-y-2">
@@ -130,7 +107,7 @@ export default function StepPhoto() {
           Continuer <ArrowRight size={16} strokeWidth={2.2} />
         </Button>
         <button
-          onClick={() => router.push("/onboarding/infos")}
+          onClick={() => router.push("/onboarding/sorties")}
           className="w-full text-center text-[13px] font-semibold text-ink-muted underline"
         >
           Passer cette étape

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type Tone = "neutral" | "accent" | "success" | "warning" | "trust" | "ink";
+type Tone = "neutral" | "accent" | "success" | "warning" | "trust" | "ink" | "roadtrip";
 
 const toneClasses: Record<Tone, string> = {
   neutral: "bg-bg-secondary text-ink",
@@ -10,6 +10,7 @@ const toneClasses: Record<Tone, string> = {
   warning: "bg-warning/15 text-[#9B7B26]",
   trust: "bg-trust/10 text-trust",
   ink: "bg-ink text-bg-primary",
+  roadtrip: "bg-[#1A2E4A] text-[#A8C4E0]",
 };
 
 export function Tag({

@@ -26,7 +26,7 @@ export default function CreateRidePage() {
   const { upsertRide } = useActions();
   const { reseau } = useConnectionsLists();
 
-  const [pointDepart, setPointDepart] = useState("Place Bellecour, Lyon 2e");
+  const [pointDepart, setPointDepart] = useState(me?.ville ?? "");
   const [pointArrivee, setPointArrivee] = useState("");
   const [arrets, setArrets] = useState<string[]>([]);
   const [date, setDate] = useState(() => {
@@ -49,15 +49,17 @@ export default function CreateRidePage() {
   const [mot, setMot] = useState("");
   const [validation, setValidation] = useState(true);
 
-  const valid = pointDepart && date && heure && duree;
+  const valid = pointDepart && date && heure && duree && sorties.length > 0;
 
   function publish() {
     if (!me || !valid) return;
+    const rideId = `r_${Math.random().toString(36).slice(2, 8)}`;
     const ride: Ride = {
-      id: `r_${Math.random().toString(36).slice(2, 8)}`,
+      id: rideId,
       createur_id: me.id,
       titre: `${pointDepart}, ${SORTIE_LABEL[sorties[0] ?? "balade"]}`,
       point_depart: pointDepart,
+      point_arrivee: pointArrivee || null,
       lat_depart: me.lat,
       lng_depart: me.lng,
       date_ride: date,
@@ -74,7 +76,7 @@ export default function CreateRidePage() {
       participants: [
         {
           id: `p_${Math.random().toString(36).slice(2, 8)}`,
-          ride_id: "",
+          ride_id: rideId,
           user_id: me.id,
           statut: "accepte",
           note_donnee: null,
@@ -182,7 +184,7 @@ export default function CreateRidePage() {
               <button
                 type="button"
                 onClick={() => setArrets((p) => [...p, ""])}
-                className="w-full h-9 rounded-card border-[1.5px] border-dashed border-line text-[12px] font-semibold text-ink-muted flex items-center justify-center gap-1.5"
+                className="w-full h-9 rounded-card bg-accent text-white text-[12px] font-semibold flex items-center justify-center gap-1.5"
               >
                 <Plus size={13} strokeWidth={2.5} /> Ajouter un arrêt
               </button>
@@ -376,8 +378,8 @@ export default function CreateRidePage() {
                 onClick={() => toggleSortie(s)}
                 className={`px-4 h-9 rounded-chip text-caption font-medium border ${
                   sorties.includes(s)
-                    ? "bg-ink text-white border-ink"
-                    : "bg-white text-ink border-line"
+                    ? s === "longue_distance" ? "bg-[#1A2E4A] text-[#A8C4E0] border-[#1A2E4A]" : "bg-ink text-white border-ink"
+                    : s === "longue_distance" ? "bg-[#EEF3F8] text-[#1A2E4A] border-[#BFCFDF]" : "bg-white text-ink border-line"
                 }`}
               >
                 {SORTIE_LABEL[s]}
